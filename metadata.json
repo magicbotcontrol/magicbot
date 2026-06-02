@@ -1,0 +1,6 @@
+{
+  "name": "Control Copy IQ",
+  "description": "SaaS premium de gestão financeira e operacional para Copy Trading na IQ Option.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
