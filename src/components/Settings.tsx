@@ -12,7 +12,7 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react';
-import { BRANDING } from '../../branding';
+import { BRANDING } from '../branding';
 import { Configuracoes, UserAuth } from '../types';
 import { ControlCopyDB } from '../lib/db';
 

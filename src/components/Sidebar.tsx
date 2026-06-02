@@ -11,7 +11,7 @@ import {
   LogOut,
   UserCheck
 } from 'lucide-react';
-import { BRANDING } from '../../branding';
+import { BRANDING } from '../branding';
 import { UserAuth } from '../types';
 
 interface SidebarProps {

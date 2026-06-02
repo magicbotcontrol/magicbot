@@ -8,7 +8,7 @@ import LinksAndInstructions from './components/LinksAndInstructions';
 import Settings from './components/Settings';
 import PublicClientSignup from './components/PublicClientSignup';
 import MyCopy from './components/MyCopy';
-import { BRANDING } from '../branding';
+import { BRANDING } from './branding';
 import Auth from './components/Auth';
 import { UserAuth } from './types';
 import {

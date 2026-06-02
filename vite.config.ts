@@ -1,6 +1,6 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { BRANDING } from './branding';
+import { BRANDING } from './src/branding';
 import path from 'path';
 import { defineConfig } from 'vitest/config';
 

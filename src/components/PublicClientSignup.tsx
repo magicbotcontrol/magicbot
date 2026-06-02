@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { AlertCircle, ArrowRight, Lock, Mail, Phone, User } from 'lucide-react';
-import { BRANDING } from '../../branding';
+import { BRANDING } from '../branding';
 import { signUpWithEmail, signInWithEmail } from '../lib/auth';
 
 interface PublicClientSignupProps {

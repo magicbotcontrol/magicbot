@@ -8,7 +8,7 @@ import {
   CheckCircle2, 
   AlertCircle
 } from 'lucide-react';
-import { BRANDING } from '../../branding';
+import { BRANDING } from '../branding';
 import { UserAuth } from '../types';
 import { ControlCopyDB } from '../lib/db';
 import { getCurrentAuthProfile, sendPasswordReset, signInWithEmail, signUpWithEmail } from '../lib/auth';
