@@ -8,14 +8,19 @@ export function SignalsTab({
   handleStartBot,
   signalsText,
   setSignalsText,
+  isSignalsReadOnly,
   selectedDate,
   setSelectedDate,
   fileInputRef,
   handleFileUpload,
+  handleSaveSignals,
+  handleClearSignals,
   handleExport,
   parsedSignals,
   validCount,
-  showToast
+  isSignalsLoading,
+  isSignalsSaving,
+  handleOpenInBroker
 }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-in">
@@ -57,15 +62,19 @@ export function SignalsTab({
           </div>
           <textarea
             value={signalsText}
-            onChange={(e) => setSignalsText(e.target.value)}
+            onChange={(e) => {
+              if (isSignalsReadOnly) return;
+              setSignalsText(e.target.value);
+            }}
             className="flex-1 w-full bg-gray-50 dark:bg-[#334155] border border-gray-200 dark:border-[#475569] rounded-xl p-3 font-mono text-xs text-gray-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-[#FF6B00] resize-none custom-scrollbar"
             placeholder="M5;EURUSD;14:00;CALL"
+            readOnly={Boolean(isSignalsReadOnly)}
           />
           <div className="flex space-x-3 mt-4">
-            <button onClick={() => showToast(t.saveListSuccess)} className="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-medium py-2 rounded-lg text-xs flex items-center justify-center transition-colors">
+            <button onClick={handleSaveSignals} disabled={isSignalsSaving} className="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-60 text-gray-800 dark:text-white font-medium py-2 rounded-lg text-xs flex items-center justify-center transition-colors">
               <Icons.Save /> {t.save}
             </button>
-            <button onClick={() => setSignalsText('')} className="flex-1 bg-red-50 dark:bg-red-950/20 hover:bg-red-100 text-red-600 dark:text-red-400 font-medium py-2 rounded-lg text-xs flex items-center justify-center transition-colors">
+            <button onClick={handleClearSignals} className="flex-1 bg-red-50 dark:bg-red-950/20 hover:bg-red-100 text-red-600 dark:text-red-400 font-medium py-2 rounded-lg text-xs flex items-center justify-center transition-colors">
               <Icons.Trash /> {t.clear}
             </button>
           </div>
@@ -85,12 +94,12 @@ export function SignalsTab({
             </div>
             <div className="flex space-x-2">
               <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".txt,.csv" className="hidden" />
-              <button onClick={() => fileInputRef.current?.click()} className="px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-[#CBD5E1] bg-gray-50 dark:bg-[#111827] border border-gray-200 dark:border-[#1F2A3A] rounded-lg hover:bg-gray-100 dark:hover:bg-[#162033] transition-colors">{t.import}</button>
+              <button disabled={Boolean(isSignalsReadOnly)} onClick={() => fileInputRef.current?.click()} className="px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-[#CBD5E1] bg-gray-50 dark:bg-[#111827] border border-gray-200 dark:border-[#1F2A3A] rounded-lg hover:bg-gray-100 dark:hover:bg-[#162033] transition-colors disabled:cursor-not-allowed disabled:opacity-40">{t.import}</button>
               <button onClick={handleExport} className="px-3 py-1.5 text-xs font-semibold text-white rounded-lg hover:bg-opacity-90 transition-colors" style={{ backgroundColor: colors.primary }}>{t.export}</button>
             </div>
           </div>
 
-          <ScrollableTableShell minWidthClass="min-w-[680px]" hintLabel={t.swipeHint || 'Swipe'}>
+          <ScrollableTableShell minWidthClass="min-w-[760px]" hintLabel={t.swipeHint || 'Swipe'}>
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="sticky top-0 bg-gray-50 dark:bg-[#111827] text-[10px] font-bold uppercase text-gray-400 dark:text-[#94A3B8]">
@@ -99,13 +108,16 @@ export function SignalsTab({
                   <th className="px-3 py-3 whitespace-nowrap">{t.asset}</th>
                   <th className="px-3 py-3 whitespace-nowrap">{t.timeRate}</th>
                   <th className="px-3 py-3 whitespace-nowrap">{t.action}</th>
+                  <th className="px-3 py-3 whitespace-nowrap">{t.open || 'Abrir'}</th>
                   <th className="px-3 py-3 whitespace-nowrap">{t.information}</th>
                 </tr>
               </thead>
               <tbody className="text-xs divide-y divide-gray-50 dark:divide-[#1F2A3A]">
                 {parsedSignals.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="p-8 text-center text-gray-400 dark:text-[#64748B]">{t.noSignalsFound}</td>
+                    <td colSpan="7" className="p-8 text-center text-gray-400 dark:text-[#64748B]">
+                      {isSignalsLoading ? t.loadingSignals : t.noSignalsFound}
+                    </td>
                   </tr>
                 ) : (
                   parsedSignals.map((sig, i) => (
@@ -116,6 +128,17 @@ export function SignalsTab({
                       <td className="px-3 py-3 font-mono text-gray-600 dark:text-[#94A3B8] whitespace-nowrap">{sig.timeOrRate}</td>
                       <td className="px-3 py-3 whitespace-nowrap">
                         <span className={`inline-flex min-w-[58px] justify-center rounded px-2 py-1 font-bold ${sig.action === 'CALL' ? 'bg-green-100 text-green-700 dark:bg-green-950/60 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300'}`}>{sig.action}</span>
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <button
+                          type="button"
+                          disabled={!sig.isValid || !handleOpenInBroker}
+                          onClick={() => handleOpenInBroker?.(sig)}
+                          className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-bold text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-[#1F2A3A] dark:bg-[#0B1220] dark:text-[#CBD5E1] dark:hover:bg-[#111827]"
+                        >
+                          <Icons.Link />
+                          {t.open || 'Abrir'}
+                        </button>
                       </td>
                       <td className="min-w-[220px] px-3 py-3 text-[10px] text-gray-500 dark:text-[#94A3B8]">{sig.isValid ? t.readyToTrade : sig.error}</td>
                     </tr>

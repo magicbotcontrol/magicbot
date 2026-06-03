@@ -1,28 +1,35 @@
 import { useEffect, useState } from 'react';
-import { initialBrokersList } from '../constants/mockData';
+import { getWorkspaceBootstrap, invokeSecureBrokerLink, updateSelectedTimezone } from '../services/supabaseWorkspace';
 
-export function useBrokerState(showToast, playAlertSound, t) {
-  const initialTimezone = () => {
-    try {
-      return localStorage.getItem('magicbot_timezone') || 'America/Sao_Paulo';
-    } catch {
-      return 'America/Sao_Paulo';
-    }
-  };
-
-  const [selectedTimezone, setSelectedTimezone] = useState(initialTimezone);
-  const [brokersList, setBrokersList] = useState(initialBrokersList);
+export function useBrokerState(workspaceId, showToast, playAlertSound, t) {
+  const [selectedTimezone, setSelectedTimezone] = useState('America/Sao_Paulo');
+  const [brokersList, setBrokersList] = useState([]);
   const [activeBrokerLinking, setActiveBrokerLinking] = useState(null);
   const [brokerEmailInput, setBrokerEmailInput] = useState('');
   const [brokerPassInput, setBrokerPassInput] = useState('');
   const [isLinkingLoading, setIsLinkingLoading] = useState(false);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('magicbot_timezone', selectedTimezone);
-    } catch {
+    let mounted = true;
+    if (!workspaceId) {
+      return undefined;
     }
-  }, [selectedTimezone]);
+
+    getWorkspaceBootstrap(workspaceId)
+      .then((data) => {
+        if (!mounted) return;
+        setSelectedTimezone(data.preferences?.selected_timezone || 'America/Sao_Paulo');
+        setBrokersList(data.brokers || []);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        showToast(t.supabaseSyncError);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [workspaceId, showToast, t]);
 
   const triggerLinkBroker = (brokerId) => {
     const broker = brokersList.find((item) => item.id === brokerId);
@@ -34,39 +41,82 @@ export function useBrokerState(showToast, playAlertSound, t) {
   const submitLinkBroker = (e) => {
     e.preventDefault();
 
+    if (!workspaceId || !activeBrokerLinking) {
+      showToast(t.supabaseConnectionError);
+      return;
+    }
+
     if (!brokerEmailInput.trim() || !brokerPassInput.trim()) {
       showToast(t.brokerCredentialsRequired);
       return;
     }
 
     setIsLinkingLoading(true);
-    setTimeout(() => {
-      setBrokersList((prev) =>
-        prev.map((broker) =>
-          broker.id === activeBrokerLinking.id
-            ? { ...broker, status: 'Linked', email: brokerEmailInput, balance: 10450.0, baseCurrency: broker.baseCurrency || 'USD' }
-            : broker
-        )
-      );
-      setIsLinkingLoading(false);
-      setActiveBrokerLinking(null);
-      playAlertSound(900, 0.25);
-      showToast(t.brokerConnectedSuccess);
-    }, 1800);
+    invokeSecureBrokerLink({
+      action: 'link',
+      brokerKey: activeBrokerLinking.id,
+      brokerName: activeBrokerLinking.name,
+      logoColor: activeBrokerLinking.logoColor,
+      email: brokerEmailInput,
+      password: brokerPassInput,
+      accountType: activeBrokerLinking.accountType || 'Demo',
+      baseCurrency: activeBrokerLinking.baseCurrency || 'USD',
+      provider: activeBrokerLinking.id === 'iqoption' ? 'iqoption' : 'manual'
+    })
+      .then(() => getWorkspaceBootstrap(workspaceId))
+      .then((data) => {
+        setBrokersList(data.brokers || []);
+        setActiveBrokerLinking(null);
+        playAlertSound(900, 0.25);
+        showToast(t.brokerConnectedSuccess);
+      })
+      .catch(() => {
+        showToast(t.supabaseSaveError);
+      })
+      .finally(() => {
+        setIsLinkingLoading(false);
+      });
   };
 
   const disconnectBroker = (brokerName, brokerId) => {
-    setBrokersList((prev) =>
-      prev.map((broker) =>
-        broker.id === brokerId ? { ...broker, status: 'Unlinked', email: '', balance: 0.0, baseCurrency: broker.baseCurrency || 'USD' } : broker
-      )
-    );
-    showToast(t.disconnectedFrom.replace('{broker}', brokerName));
+    const broker = brokersList.find((item) => item.id === brokerId);
+    if (!broker) {
+      return;
+    }
+
+    invokeSecureBrokerLink({
+      action: 'unlink',
+      brokerKey: broker.id
+    })
+      .then(() => getWorkspaceBootstrap(workspaceId))
+      .then((data) => {
+        setBrokersList(data.brokers || []);
+        showToast(t.disconnectedFrom.replace('{broker}', brokerName));
+      })
+      .catch(() => {
+        showToast(t.supabaseSaveError);
+      });
+  };
+
+  const saveSelectedTimezone = async (timezone) => {
+    if (!workspaceId) {
+      showToast(t.supabaseConnectionError);
+      return false;
+    }
+
+    try {
+      await updateSelectedTimezone(workspaceId, timezone);
+      setSelectedTimezone(timezone);
+      return true;
+    } catch {
+      showToast(t.supabaseSaveError);
+      return false;
+    }
   };
 
   return {
     selectedTimezone,
-    setSelectedTimezone,
+    saveSelectedTimezone,
     brokersList,
     setBrokersList,
     activeBrokerLinking,

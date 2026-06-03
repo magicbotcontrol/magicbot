@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { buildTimeZoneOptions } from '../../constants/timezones';
 
 export function AccountTab({
+  userEmail,
   selectedTimezone,
-  setSelectedTimezone,
+  saveSelectedTimezone,
   brokersList,
   triggerLinkBroker,
   disconnectBroker,
@@ -24,9 +25,11 @@ export function AccountTab({
     return timezoneOptions.filter((opt) => opt.label.toLowerCase().includes(q) || opt.value.toLowerCase().includes(q));
   }, [timezoneOptions, timezoneQuery]);
 
-  const handleSaveTimezone = () => {
-    setSelectedTimezone(timezoneDraft);
-    showToast(t.timezoneSaved);
+  const handleSaveTimezone = async () => {
+    const saved = await saveSelectedTimezone(timezoneDraft);
+    if (saved) {
+      showToast(t.timezoneSaved);
+    }
   };
 
   return (
@@ -40,7 +43,7 @@ export function AccountTab({
           <circle cx="26" cy="20" r="2" fill="#00E676" />
         </svg>
         <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t.myAccount}</h2>
-        <p className="text-xs text-gray-500 font-mono mt-1">comunidaderedendamais@gmail.com</p>
+        <p className="text-xs text-gray-500 font-mono mt-1">{userEmail || '-'}</p>
 
         <div className="mt-6 w-full max-w-sm space-y-2 text-left">
           <label className="text-[10px] font-bold text-gray-400 uppercase">{t.accountTimezone}</label>

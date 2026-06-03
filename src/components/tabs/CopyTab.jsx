@@ -1,11 +1,10 @@
-import { copyTradingRanking } from '../../constants/mockData';
-
 export function CopyTab({ showToast, t, formatMoney }) {
+  const copyTradingRanking = [];
   return (
     <div className="space-y-6 animate-fade-in">
       <h2 className="text-base font-bold text-gray-900 dark:text-white">{t.copyRanking}</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {copyTradingRanking.map((trader, i) => (
+        {copyTradingRanking.length ? copyTradingRanking.map((trader, i) => (
           <div key={i} className="bg-white dark:bg-[#1E293B] rounded-2xl border border-gray-200 dark:border-[#334155] p-5 shadow-sm space-y-4">
             <div className="flex justify-between items-center">
               <span className="text-xs font-bold text-[#FF6B00] bg-orange-50 dark:bg-orange-950/20 px-2.5 py-1 rounded">{trader.rank}</span>
@@ -28,7 +27,11 @@ export function CopyTab({ showToast, t, formatMoney }) {
             </div>
             <button onClick={() => showToast(t.copyEnabled.replace('{name}', trader.name))} className="w-full py-2 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-bold hover:bg-gray-50 dark:hover:bg-gray-800">{t.copyOperations}</button>
           </div>
-        ))}
+        )) : (
+          <div className="col-span-full rounded-2xl border border-gray-200 bg-white p-6 text-sm font-semibold text-gray-500 dark:border-[#334155] dark:bg-[#1E293B] dark:text-[#94A3B8]">
+            Ranking indisponível no momento.
+          </div>
+        )}
       </div>
     </div>
   );

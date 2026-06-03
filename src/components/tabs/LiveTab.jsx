@@ -22,7 +22,7 @@ export function LiveTab({ liveSignals, t, botStatus, handleStartBot, formatMoney
   const wins = finishedSignals.filter((s) => (Number(s.pl) || 0) > 0).length;
   const losses = finishedSignals.filter((s) => (Number(s.pl) || 0) < 0).length;
   const accuracy = wins + losses ? Math.round((wins / (wins + losses)) * 1000) / 10 : 0;
-  const formattedTotalPL = totalPL >= 0 ? `+${formatMoney(totalPL, 'USD')}` : formatMoney(totalPL, 'USD');
+  const formattedTotalPL = totalPL >= 0 ? `+${formatMoney(totalPL, baseBalanceCurrency)}` : formatMoney(totalPL, baseBalanceCurrency);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -159,7 +159,7 @@ export function LiveTab({ liveSignals, t, botStatus, handleStartBot, formatMoney
               if (cancelled) statusLabel = t.statusCancelled;
               else if (sig.status === 'active') statusLabel = t.statusPosterior;
               else if (sig.status === 'new') statusLabel = t.statusPending;
-              else if (ended) statusLabel = `${pl >= 0 ? 'WIN' : 'LOSS'} ${pl >= 0 ? '+' : ''}${formatMoney(pl, 'USD')}`;
+              else if (ended) statusLabel = `${pl >= 0 ? 'WIN' : 'LOSS'} ${pl >= 0 ? '+' : ''}${formatMoney(pl, baseBalanceCurrency)}`;
 
               const rowClass = cancelled
                 ? 'bg-gray-50/60 dark:bg-[#0B1220]'
@@ -182,7 +182,7 @@ export function LiveTab({ liveSignals, t, botStatus, handleStartBot, formatMoney
                   </td>
                   <td className="px-3 py-4 sm:px-4 font-mono font-bold text-gray-700 dark:text-[#CBD5E1] whitespace-nowrap">{sig.tf}</td>
                   <td className="px-3 py-4 sm:px-4 text-gray-600 dark:text-[#94A3B8] whitespace-nowrap">{sig.recovery || '-'}</td>
-                  <td className="px-3 py-4 sm:px-4 font-mono font-bold text-gray-800 dark:text-[#F8FAFC] whitespace-nowrap">{formatMoney(sig.entry || 0, 'USD')}</td>
+                  <td className="px-3 py-4 sm:px-4 font-mono font-bold text-gray-800 dark:text-[#F8FAFC] whitespace-nowrap">{formatMoney(sig.entry || 0, baseBalanceCurrency)}</td>
                   <td className="px-3 py-4 sm:px-4 font-bold text-gray-600 dark:text-[#94A3B8] whitespace-nowrap">{sig.option || '-'}</td>
                   <td className="px-3 py-4 sm:px-4 whitespace-nowrap">
                     <span

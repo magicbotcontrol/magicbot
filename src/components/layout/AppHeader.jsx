@@ -21,6 +21,7 @@ export function AppHeader({
   hasNotifGlow,
   setHasNotifGlow,
   handleLogOut,
+  isAdmin,
   formatMoney,
   fxLoading,
   fxError,
@@ -195,17 +196,37 @@ export function AppHeader({
             className="focus:outline-none transition-transform transform hover:scale-105"
             title="Menu do Perfil"
           >
-            <svg width="34" height="34" viewBox="0 0 40 40" className="rounded-full shadow-md border-2 border-[#00B0FF]">
-              <circle cx="20" cy="20" r="20" fill="#009688" />
-              <path d="M12 25c2-4 6-6 8-6s6 2 8 6" stroke="#FFFFFF" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-              <circle cx="20" cy="13" r="4.5" fill="#FFFFFF" />
-              <circle cx="14" cy="20" r="2" fill="#00E676" />
-              <circle cx="26" cy="20" r="2" fill="#00E676" />
-            </svg>
+            <div className="relative">
+              <svg width="34" height="34" viewBox="0 0 40 40" className="rounded-full shadow-md border-2 border-[#00B0FF]">
+                <circle cx="20" cy="20" r="20" fill="#009688" />
+                <path d="M12 25c2-4 6-6 8-6s6 2 8 6" stroke="#FFFFFF" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+                <circle cx="20" cy="13" r="4.5" fill="#FFFFFF" />
+                <circle cx="14" cy="20" r="2" fill="#00E676" />
+                <circle cx="26" cy="20" r="2" fill="#00E676" />
+              </svg>
+              {isAdmin ? (
+                <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-[#FFD7B5] bg-[#FFF7F0] px-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#B45309] shadow-sm dark:border-[#7C2D12] dark:bg-[#3A1E12] dark:text-[#FDBA74]">
+                  {t.adminBadge}
+                </span>
+              ) : null}
+            </div>
           </button>
 
           {isProfileDropdownOpen && (
             <div className="absolute right-0 mt-2 bg-white dark:bg-[#0B1220] border border-gray-200 dark:border-[#1F2A3A] rounded-2xl shadow-2xl p-2 w-56 z-50 animate-fade-in text-gray-800 dark:text-gray-200">
+              {isAdmin ? (
+                <>
+                  <div className="px-4 py-2">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-[#FFD7B5] bg-[#FFF7F0] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#B45309] dark:border-[#7C2D12] dark:bg-[#3A1E12] dark:text-[#FDBA74]">
+                      <Icons.Shield />
+                      <span>{t.adminBadge}</span>
+                    </div>
+                  </div>
+                  <button onClick={() => { setActiveTab('admin'); setIsProfileDropdownOpen(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center space-x-3 text-xs font-bold transition-all">
+                    <Icons.Shield /> <span>{t.admin}</span>
+                  </button>
+                </>
+              ) : null}
               <button onClick={() => { setActiveTab('account'); setIsProfileDropdownOpen(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center space-x-3 text-xs font-bold transition-all">
                 <Icons.User /> <span>{t.myAccount}</span>
               </button>

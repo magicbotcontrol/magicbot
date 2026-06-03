@@ -22,7 +22,7 @@ export function SettingsTab({ config, setConfig, showToast, playAlertSound, t, c
             <div>
               <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Tipo de Conta *</label>
               <select value={config.accountType} onChange={(e) => setConfig({ ...config, accountType: e.target.value })} className="w-full border border-gray-200 dark:border-gray-700 rounded-xl p-2.5 text-xs bg-gray-50 dark:bg-[#334155] dark:text-white focus:ring-1 focus:ring-[#FF6B00] focus:outline-none">
-                <option value="Practice">Treinamento / Demo</option>
+                <option value="Demo">Treinamento / Demo</option>
                 <option value="Real">Conta Real</option>
               </select>
             </div>

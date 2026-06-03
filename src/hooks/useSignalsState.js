@@ -1,99 +1,81 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { initialLiveSignals, initialSignalsDate, initialSignalsText } from '../constants/mockData';
+import { getSignalsByDate, saveSignalList } from '../services/supabaseSignals';
+import { getDailySignalFeedByDate } from '../services/supabaseSignalFeed';
+import { getWorkspaceBootstrap, updateWorkspaceRuntime } from '../services/supabaseWorkspace';
+import { parseSignalsText } from '../utils/signalParser';
 
-export function useSignalsState({ isLoggedIn, remainingDays, t, showToast, playAlertSound, setActiveTab }) {
+export function useSignalsState({ workspaceId, isLoggedIn, remainingDays, hasSignalsListAccess, t, showToast, playAlertSound, setActiveTab, entryValue }) {
+  const initialDate = new Date().toLocaleDateString('en-CA');
   const [botStatus, setBotStatus] = useState('offline');
-  const [signalsText, setSignalsText] = useState(initialSignalsText);
-  const [selectedDate, setSelectedDate] = useState(initialSignalsDate);
-  const [liveSignals, setLiveSignals] = useState(initialLiveSignals);
+  const [signalsText, setSignalsText] = useState('');
+  const [selectedDate, setSelectedDate] = useState(initialDate);
+  const [liveSignals, setLiveSignals] = useState([]);
+  const [isReadOnly, setIsReadOnly] = useState(false);
+  const [isSignalsLoading, setIsSignalsLoading] = useState(false);
+  const [isSignalsSaving, setIsSignalsSaving] = useState(false);
   const fileInputRef = useRef(null);
+  const canUseSignals = remainingDays > 0 || hasSignalsListAccess;
 
   useEffect(() => {
-    if (!isLoggedIn) {
+    let mounted = true;
+    if (!workspaceId || !isLoggedIn) {
       return undefined;
     }
 
-    const assets = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDCAD', 'EURJPY', 'GBPUSD-OTC'];
-    const directions = ['CALL', 'PUT'];
-    const timeframes = ['M1', 'M5', 'M15'];
-    const options = ['DIGITAL', 'MAIOR'];
-    const recoveries = ['-', '-', '-', '-', 'MARTINGALE 1', 'MARTINGALE 2', 'SOROS 1'];
+    setIsSignalsLoading(true);
 
-    const interval = setInterval(() => {
-      if (Math.random() > 0.5) {
-        const now = new Date();
-        const timeStr = now.toTimeString().split(' ')[0];
-        const entry = Math.random() > 0.6 ? 21 : 14;
-        const statusRoll = Math.random();
-        const status = statusRoll > 0.88 ? 'cancelled' : statusRoll > 0.66 ? 'ended' : statusRoll > 0.33 ? 'active' : 'new';
-        const pl = status === 'ended' ? (Math.random() > 0.55 ? entry * 0.8 : -entry * 1.5) : 0;
-        const newSignal = {
-          time: timeStr,
-          asset: assets[Math.floor(Math.random() * assets.length)],
-          tf: timeframes[Math.floor(Math.random() * timeframes.length)],
-          dir: directions[Math.floor(Math.random() * directions.length)],
-          prob: `${Math.floor(Math.random() * 20) + 75}%`,
-          status,
-          recovery: recoveries[Math.floor(Math.random() * recoveries.length)],
-          entry,
-          option: options[Math.floor(Math.random() * options.length)],
-          pl,
-          cancelled: status === 'cancelled'
-        };
-
-        playAlertSound(750, 0.25);
-        setLiveSignals((prev) => [newSignal, ...prev.slice(0, 5)]);
-        showToast(t.newSignalToast.replace('{asset}', newSignal.asset).replace('{tf}', newSignal.tf).replace('{dir}', newSignal.dir));
-      }
-    }, 15000);
-
-    return () => clearInterval(interval);
-  }, [isLoggedIn, playAlertSound, showToast]);
-
-  const parsedSignals = useMemo(() => {
-    if (!signalsText.trim()) {
-      return [];
-    }
-
-    return signalsText
-      .split('\n')
-      .filter((line) => line.trim() !== '')
-      .map((line, index) => {
-        const parts = line.split(';').map((part) => part.trim());
-        let isValid = false;
-        let error = '';
-
-        if (parts.length >= 4) {
-          const tfRegex = /^M[1-9][0-5]?$/i;
-          const actRegex = /^(CALL|PUT)$/i;
-          const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
-
-          if (!tfRegex.test(parts[0])) error = t.invalidTimeframe;
-          else if (parts[1].length < 6) error = t.invalidAsset;
-          else if (!timeRegex.test(parts[2]) && isNaN(parseFloat(parts[2]))) error = t.invalidTimeOrRate;
-          else if (!actRegex.test(parts[3])) error = t.invalidAction;
-          else isValid = true;
-        } else {
-          error = t.invalidFormat;
+    Promise.all([
+      getWorkspaceBootstrap(workspaceId),
+      getSignalsByDate(workspaceId, selectedDate)
+    ])
+      .then(async ([workspaceData, signalsData]) => {
+        if (!mounted) return;
+        setBotStatus(workspaceData.runtime?.bot_status || 'offline');
+        if (signalsData.signalList?.raw_text) {
+          setSignalsText(signalsData.signalList.raw_text || '');
+          setLiveSignals(signalsData.liveOperations || []);
+          setIsReadOnly(false);
+          return;
         }
 
-        return {
-          id: index,
-          raw: line,
-          timeframe: parts[0]?.toUpperCase() || '-',
-          asset: parts[1]?.toUpperCase() || '-',
-          timeOrRate: parts[2] || '-',
-          action: parts[3]?.toUpperCase() || '-',
-          isValid,
-          error
-        };
+        if (hasSignalsListAccess) {
+          try {
+            const feed = await getDailySignalFeedByDate(selectedDate);
+            if (!mounted) return;
+            if (feed.items?.length) {
+              setSignalsText(feed.items.map((item) => item.raw).join('\n'));
+              setLiveSignals([]);
+              setIsReadOnly(true);
+              return;
+            }
+          } catch {
+          }
+        }
+
+        setSignalsText('');
+        setLiveSignals(signalsData.liveOperations || []);
+        setIsReadOnly(false);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        showToast(t.supabaseSyncError);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setIsSignalsLoading(false);
       });
-  }, [signalsText]);
+
+    return () => {
+      mounted = false;
+    };
+  }, [workspaceId, isLoggedIn, selectedDate, showToast, t]);
+
+  const parsedSignals = useMemo(() => parseSignalsText(signalsText, t), [signalsText, t]);
 
   const validCount = parsedSignals.filter((signal) => signal.isValid).length;
 
-  const handleStartBot = () => {
-    if (remainingDays <= 0) {
+  const handleStartBot = async () => {
+    if (!canUseSignals) {
       showToast(t.avisoExpirado);
       setActiveTab('shop');
       return;
@@ -104,9 +86,67 @@ export function useSignalsState({ isLoggedIn, remainingDays, t, showToast, playA
       return;
     }
 
-    playAlertSound(botStatus === 'offline' ? 880 : 440, 0.3);
-    setBotStatus((prev) => (prev === 'offline' ? 'running' : 'offline'));
-    showToast(botStatus === 'offline' ? t.botRunningToast : t.botPausedToast);
+    if (!workspaceId) {
+      showToast(t.supabaseConnectionError);
+      return;
+    }
+
+    const nextStatus = botStatus === 'offline' ? 'running' : 'offline';
+
+    try {
+      await updateWorkspaceRuntime(workspaceId, nextStatus);
+      setBotStatus(nextStatus);
+      playAlertSound(nextStatus === 'running' ? 880 : 440, 0.3);
+      showToast(nextStatus === 'running' ? t.botRunningToast : t.botPausedToast);
+    } catch {
+      showToast(t.supabaseSaveError);
+    }
+  };
+
+  const handleSaveSignals = async () => {
+    if (!canUseSignals) {
+      showToast(t.avisoExpirado);
+      setActiveTab('shop');
+      return;
+    }
+
+    if (!workspaceId) {
+      showToast(t.supabaseConnectionError);
+      return;
+    }
+
+    setIsSignalsSaving(true);
+
+    try {
+      const result = await saveSignalList({
+        workspaceId,
+        listDate: selectedDate,
+        signalsText,
+        parsedSignals,
+        entryValue
+      });
+
+      setSignalsText(result.signalList.raw_text || '');
+      setLiveSignals(result.liveOperations);
+      showToast(t.saveListSuccess);
+    } catch {
+      showToast(t.supabaseSaveError);
+    } finally {
+      setIsSignalsSaving(false);
+    }
+  };
+
+  const handleClearSignals = () => {
+    if (isReadOnly) {
+      showToast('Esta lista é protegida.');
+      return;
+    }
+    setSignalsText('');
+    setLiveSignals([]);
+  };
+
+  const loadSignalsByDate = (date) => {
+    setSelectedDate(date);
   };
 
   const handleExport = () => {
@@ -154,12 +194,17 @@ export function useSignalsState({ isLoggedIn, remainingDays, t, showToast, playA
     signalsText,
     setSignalsText,
     selectedDate,
-    setSelectedDate,
+    setSelectedDate: loadSignalsByDate,
     liveSignals,
+    isSignalsReadOnly: isReadOnly,
+    isSignalsLoading,
+    isSignalsSaving,
     fileInputRef,
     parsedSignals,
     validCount,
     handleStartBot,
+    handleSaveSignals,
+    handleClearSignals,
     handleExport,
     handleFileUpload
   };

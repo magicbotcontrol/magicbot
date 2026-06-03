@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { initialStrategiesList } from '../constants/mockData';
 
 export function useStrategyState(showToast, t) {
-  const [strategiesList, setStrategiesList] = useState(initialStrategiesList);
+  const [strategiesList, setStrategiesList] = useState([]);
   const [newStratName, setNewStratName] = useState('');
   const [newStratTf, setNewStratTf] = useState('M5 (5 Minutos)');
   const [selectedIndicators, setSelectedIndicators] = useState([]);

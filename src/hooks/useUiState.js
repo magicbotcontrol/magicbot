@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { colors } from '../constants/colors';
 import { translations } from '../constants/translations';
 import { convertBetween, defaultFxApiUrl, FX_BASE_CURRENCY, formatCurrency, localeForLanguage, SUPPORTED_CURRENCIES } from '../utils/money';
@@ -186,10 +186,10 @@ export function useUiState() {
     return t.fxUpdated.replace('{time}', new Date(fxUpdatedAt).toLocaleString(locale));
   }, [fxError, fxLoading, fxUpdatedAt, locale, t.fxUnavailable, t.fxUpdated, t.fxUpdating]);
 
-  const showToast = (msg) => {
+  const showToast = useCallback((msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
-  };
+  }, []);
 
   return {
     activeTab,

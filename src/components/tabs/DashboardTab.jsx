@@ -1,7 +1,70 @@
 import { Icons } from '../../constants/icons';
-import { dashboardStats } from '../../constants/mockData';
 
-export function DashboardTab({ remainingDays, expirationDate, t, setActiveTab, formatMoney }) {
+function clamp01(value) {
+  const n = Number(value) || 0;
+  if (n < 0) return 0;
+  if (n > 1) return 1;
+  return n;
+}
+
+function buildWeeklyPath(values) {
+  const series = (values || []).slice(0, 7);
+  if (series.length < 2) {
+    return {
+      line: 'M 0 130 L 500 130',
+      area: 'M 0 130 L 500 130 L 500 150 L 0 150 Z'
+    };
+  }
+
+  const min = Math.min(...series);
+  const max = Math.max(...series);
+  const span = max - min || 1;
+
+  const points = series.map((value, idx) => {
+    const x = (500 / 6) * idx;
+    const normalized = (value - min) / span;
+    const y = 130 - clamp01(normalized) * 110;
+    return { x, y };
+  });
+
+  const line = points.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+  const area = `${line} L 500 150 L 0 150 Z`;
+  return { line, area, points };
+}
+
+export function DashboardTab({ remainingDays, expirationDate, t, setActiveTab, formatMoney, dashboard, isDashboardLoading }) {
+  const stats = [
+    {
+      title: t.totalProfit || 'Lucro Total',
+      icon: 'Wallet',
+      bg: 'bg-green-50 dark:bg-green-950/20',
+      color: 'text-green-600 dark:text-green-300',
+      value: formatMoney(dashboard.totalProfitLoss, 'USD')
+    },
+    {
+      title: t.winRate || 'Taxa WIN',
+      icon: 'Target',
+      bg: 'bg-blue-50 dark:bg-sky-950/20',
+      color: 'text-blue-600 dark:text-sky-300',
+      value: `${dashboard.winRate}%`
+    },
+    {
+      title: t.activeSignals || 'Sinais Ativos',
+      icon: 'Signals',
+      bg: 'bg-orange-50 dark:bg-orange-950/20',
+      color: 'text-orange-600 dark:text-orange-300',
+      value: String(dashboard.activeSignals)
+    },
+    {
+      title: t.operations || 'Operações',
+      icon: 'Activity',
+      bg: 'bg-gray-50 dark:bg-[#0F172A]',
+      color: 'text-gray-700 dark:text-[#CBD5E1]',
+      value: String(dashboard.operations)
+    }
+  ];
+
+  const weekly = buildWeeklyPath(dashboard.weeklyProfitLoss);
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="bg-white dark:bg-[#1E293B] rounded-2xl p-6 border border-gray-200 dark:border-[#334155] shadow-sm">
@@ -36,7 +99,7 @@ export function DashboardTab({ remainingDays, expirationDate, t, setActiveTab, f
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {dashboardStats.map((stat) => {
+        {stats.map((stat) => {
           const StatIcon = Icons[stat.icon];
           return (
             <div key={stat.title} className="bg-white dark:bg-[#1E293B] rounded-xl p-4 border border-gray-200 dark:border-[#334155] shadow-sm flex items-center space-x-3">
@@ -46,7 +109,7 @@ export function DashboardTab({ remainingDays, expirationDate, t, setActiveTab, f
               <div>
                 <p className="text-[10px] md:text-xs font-semibold text-gray-400 dark:text-gray-400 uppercase tracking-wide">{stat.title}</p>
                 <h3 className="text-sm md:text-base font-bold text-gray-900 dark:text-white">
-                  {typeof stat.valueAmount === 'number' ? formatMoney(stat.valueAmount) : stat.value}
+                  {isDashboardLoading ? '-' : stat.value}
                 </h3>
               </div>
             </div>
@@ -62,10 +125,11 @@ export function DashboardTab({ remainingDays, expirationDate, t, setActiveTab, f
               <line x1="0" y1="30" x2="500" y2="30" stroke="#F1F3F5" strokeWidth="1" />
               <line x1="0" y1="75" x2="500" y2="75" stroke="#F1F3F5" strokeWidth="1" />
               <line x1="0" y1="120" x2="500" y2="120" stroke="#F1F3F5" strokeWidth="1" />
-              <path d="M 0 130 Q 80 90 160 100 T 320 50 T 500 20 L 500 150 L 0 150 Z" fill="#FF6B00" fillOpacity="0.08" />
-              <path d="M 0 130 Q 80 90 160 100 T 320 50 T 500 20" fill="none" stroke="#FF6B00" strokeWidth="3" />
-              <circle cx="160" cy="100" r="4" fill="#FF6B00" />
-              <circle cx="320" cy="50" r="4" fill="#FF6B00" />
+              <path d={weekly.area} fill="#FF6B00" fillOpacity="0.08" />
+              <path d={weekly.line} fill="none" stroke="#FF6B00" strokeWidth="3" />
+              {weekly.points?.slice(1, 6).map((p, idx) => (
+                <circle key={idx} cx={p.x} cy={p.y} r="4" fill="#FF6B00" />
+              ))}
             </svg>
             <div className="flex justify-between mt-2 text-[10px] text-gray-400 font-semibold">
               <span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span><span>Dom</span>
@@ -76,15 +140,21 @@ export function DashboardTab({ remainingDays, expirationDate, t, setActiveTab, f
         <div className="bg-white dark:bg-[#1E293B] rounded-2xl p-6 border border-gray-200 dark:border-[#334155] shadow-sm">
           <h3 className="text-base font-bold text-gray-900 dark:text-white mb-4 font-mono uppercase tracking-wide">{t.recentLogs}</h3>
           <div className="space-y-3 max-h-48 overflow-y-auto custom-scrollbar pr-1">
-            <div className="text-xs border-b border-gray-50 dark:border-[#334155] pb-2">
-              <span className="text-gray-400 font-mono">[16:20]</span> <span className="text-green-600 font-bold">WIN</span> EURUSD M5 via IA.
-            </div>
-            <div className="text-xs border-b border-gray-50 dark:border-[#334155] pb-2">
-              <span className="text-gray-400 font-mono">[16:15]</span> <span className="text-green-600 font-bold">WIN</span> GBPUSD M1.
-            </div>
-            <div className="text-xs border-b border-gray-50 dark:border-[#334155] pb-2">
-              <span className="text-gray-400 font-mono">[16:00]</span> <span className="text-red-500 font-bold">LOSS</span> USDJPY M15.
-            </div>
+            {isDashboardLoading ? (
+              <div className="text-xs text-gray-400">{t.loadingSignals}</div>
+            ) : dashboard.recentLogs.length ? (
+              dashboard.recentLogs.map((log, idx) => (
+                <div key={idx} className="text-xs border-b border-gray-50 dark:border-[#334155] pb-2">
+                  <span className="text-gray-400 font-mono">[{log.time}]</span>{' '}
+                  <span className={`${log.type === 'WIN' ? 'text-green-600' : log.type === 'LOSS' ? 'text-red-500' : 'text-gray-500'} font-bold`}>
+                    {log.type}
+                  </span>{' '}
+                  {log.asset} {log.tf} {log.dir}
+                </div>
+              ))
+            ) : (
+              <div className="text-xs text-gray-400">Nenhum log disponível.</div>
+            )}
           </div>
         </div>
       </div>
