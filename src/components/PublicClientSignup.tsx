@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { AlertCircle, ArrowRight, Lock, Mail, Phone, User } from 'lucide-react';
 import { BRANDING } from '../branding';
 import { signUpWithEmail, signInWithEmail } from '../lib/auth';
+import SensitiveInputField from './SensitiveInputField';
 
 interface PublicClientSignupProps {
   indicatorCode: string;
@@ -19,6 +20,7 @@ export default function PublicClientSignup({ indicatorCode, onSuccess }: PublicC
   const [email, setEmail] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [alertMsg, setAlertMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -147,16 +149,16 @@ export default function PublicClientSignup({ indicatorCode, onSuccess }: PublicC
 
           <div>
             <label className="block mb-1">Senha *</label>
-            <div className="relative">
-              <Lock className="w-4 h-4 text-zinc-400 absolute left-3 top-3.5" />
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-9 pr-3 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:border-[#FF5500]"
-              />
-            </div>
+            <SensitiveInputField
+              value={password}
+              onChange={setPassword}
+              revealed={showPassword}
+              onToggleReveal={() => setShowPassword((current) => !current)}
+              leftIcon={Lock}
+              required
+              ariaLabelReveal="Revelar senha"
+              ariaLabelHide="Ocultar senha"
+            />
           </div>
 
           <button

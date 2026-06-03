@@ -8,13 +8,12 @@ import {
   AlertCircle, 
   HelpCircle,
   Clock,
-  KeyRound,
-  Eye,
-  EyeOff
+  KeyRound
 } from 'lucide-react';
 import { BRANDING } from '../branding';
 import { Configuracoes, UserAuth } from '../types';
 import { ControlCopyDB } from '../lib/db';
+import SensitiveInputField from './SensitiveInputField';
 
 export default function Settings() {
   const [config, setConfig] = useState<Configuracoes>({ telegram_token: '', telegram_chat_id: '' });
@@ -116,22 +115,16 @@ export default function Settings() {
           <form onSubmit={handleSaveConfig} className="space-y-4 text-xs font-semibold">
             <div>
               <label className="block text-zinc-700 mb-1">Token do Telegram Bot</label>
-              <div className="relative">
-                <input
-                  type={showPass ? 'text' : 'password'}
-                  value={config.telegram_token}
-                  onChange={(e) => setConfig({ ...config, telegram_token: e.target.value })}
-                  placeholder="E.g. 1789234199:AAHGu9xy..."
-                  className="w-full pl-3 pr-10 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl font-mono text-zinc-750 focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPass(!showPass)}
-                  className="absolute right-3 top-3 text-zinc-400 hover:text-zinc-700 cursor-pointer"
-                >
-                  {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
+              <SensitiveInputField
+                value={config.telegram_token}
+                onChange={(value) => setConfig({ ...config, telegram_token: value })}
+                revealed={showPass}
+                onToggleReveal={() => setShowPass((current) => !current)}
+                placeholder="E.g. 1789234199:AAHGu9xy..."
+                inputClassName="py-2.5 pl-3 font-mono text-zinc-750"
+                ariaLabelReveal="Revelar token do Telegram"
+                ariaLabelHide="Ocultar token do Telegram"
+              />
             </div>
 
             <div>

@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, ArrowRight, CheckCircle2, Eye, EyeOff, Lock } from 'lucide-react';
+import { AlertCircle, ArrowRight, CheckCircle2, Lock } from 'lucide-react';
 import { motion } from 'motion/react';
 import { BRANDING } from '../branding';
 import { completePasswordRecoveryFromUrl, updateCurrentUserPassword } from '../lib/auth';
 import { APP_ROUTES, replaceBrowserPath } from '../lib/app-routes';
+import SensitiveInputField from './SensitiveInputField';
 
 interface ResetPasswordProps {
   onBackToLogin: () => void;
@@ -160,58 +161,36 @@ export default function ResetPassword({ onBackToLogin }: ResetPasswordProps) {
           <form onSubmit={handleSubmit} className="space-y-4 text-xs font-semibold text-zinc-700">
             <div>
               <label className="mb-1 block">Nova Senha *</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3.5 h-4 w-4 text-zinc-400" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  minLength={6}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-3 pl-9 pr-10 focus:outline-none focus:border-[#FF5500]"
-                  placeholder="Minimo de 6 caracteres"
-                  disabled={status !== 'ready' || isSubmitting}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((current) => !current)}
-                  className="absolute right-3 top-3 text-zinc-400 hover:text-zinc-700 transition-colors"
-                  aria-label={showPassword ? 'Ocultar senha' : 'Revelar senha'}
-                  disabled={status !== 'ready' || isSubmitting}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
+              <SensitiveInputField
+                value={password}
+                onChange={setPassword}
+                revealed={showPassword}
+                onToggleReveal={() => setShowPassword((current) => !current)}
+                leftIcon={Lock}
+                required
+                minLength={6}
+                placeholder="Minimo de 6 caracteres"
+                disabled={status !== 'ready' || isSubmitting}
+                ariaLabelReveal="Revelar senha"
+                ariaLabelHide="Ocultar senha"
+              />
             </div>
 
             <div>
               <label className="mb-1 block">Confirmar Nova Senha *</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3.5 h-4 w-4 text-zinc-400" />
-                <input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  required
-                  minLength={6}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-3 pl-9 pr-10 focus:outline-none focus:border-[#FF5500]"
-                  placeholder="Repita a nova senha"
-                  disabled={status !== 'ready' || isSubmitting}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword((current) => !current)}
-                  className="absolute right-3 top-3 text-zinc-400 hover:text-zinc-700 transition-colors"
-                  aria-label={showConfirmPassword ? 'Ocultar senha' : 'Revelar senha'}
-                  disabled={status !== 'ready' || isSubmitting}
-                >
-                  {showConfirmPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
+              <SensitiveInputField
+                value={confirmPassword}
+                onChange={setConfirmPassword}
+                revealed={showConfirmPassword}
+                onToggleReveal={() => setShowConfirmPassword((current) => !current)}
+                leftIcon={Lock}
+                required
+                minLength={6}
+                placeholder="Repita a nova senha"
+                disabled={status !== 'ready' || isSubmitting}
+                ariaLabelReveal="Revelar confirmacao de senha"
+                ariaLabelHide="Ocultar confirmacao de senha"
+              />
             </div>
 
             <div className="rounded-xl border border-zinc-150 bg-zinc-50 px-3.5 py-3 text-[11px] leading-relaxed text-zinc-500">

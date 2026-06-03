@@ -4,8 +4,6 @@ import {
   Mail, 
   User, 
   Lock, 
-  Eye,
-  EyeOff,
   ArrowRight, 
   CheckCircle2, 
   AlertCircle
@@ -14,6 +12,7 @@ import { BRANDING } from '../branding';
 import { UserAuth } from '../types';
 import { ControlCopyDB } from '../lib/db';
 import { getCurrentAuthProfile, sendPasswordReset, signInWithEmail, signUpWithEmail } from '../lib/auth';
+import SensitiveInputField from './SensitiveInputField';
 
 interface AuthProps {
   onLoginSuccess: (auth: UserAuth) => void;
@@ -197,23 +196,16 @@ export default function Auth({ onLoginSuccess, sessionNotice }: AuthProps) {
 
             <div>
               <label className="block mb-1">Senha de Acesso</label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-zinc-400 absolute left-3 top-3.5" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-9 pr-10 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:border-[#FF5500]"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((current) => !current)}
-                  className="absolute right-3 top-3 text-zinc-400 hover:text-zinc-700 transition-colors"
-                  aria-label={showPassword ? 'Ocultar senha' : 'Revelar senha'}
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
+              <SensitiveInputField
+                value={password}
+                onChange={setPassword}
+                revealed={showPassword}
+                onToggleReveal={() => setShowPassword((current) => !current)}
+                leftIcon={Lock}
+                ariaLabelReveal="Revelar senha"
+                ariaLabelHide="Ocultar senha"
+                inputClassName="bg-zinc-50"
+              />
             </div>
 
             <div className="flex justify-between items-center text-[11px] pt-1">
@@ -285,26 +277,19 @@ export default function Auth({ onLoginSuccess, sessionNotice }: AuthProps) {
 
             <div>
               <label className="block mb-1">Senha de Acesso *</label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-zinc-400 absolute left-3 top-3.5" />
-                <input
-                  type={showRegPassword ? 'text' : 'password'}
-                  required
-                  minLength={6}
-                  value={regPassword}
-                  onChange={(e) => setRegPassword(e.target.value)}
-                  placeholder="Minimo de 6 caracteres"
-                  className="w-full pl-9 pr-10 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowRegPassword((current) => !current)}
-                  className="absolute right-3 top-3 text-zinc-400 hover:text-zinc-700 transition-colors"
-                  aria-label={showRegPassword ? 'Ocultar senha' : 'Revelar senha'}
-                >
-                  {showRegPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
+              <SensitiveInputField
+                value={regPassword}
+                onChange={setRegPassword}
+                revealed={showRegPassword}
+                onToggleReveal={() => setShowRegPassword((current) => !current)}
+                leftIcon={Lock}
+                required
+                minLength={6}
+                placeholder="Minimo de 6 caracteres"
+                ariaLabelReveal="Revelar senha"
+                ariaLabelHide="Ocultar senha"
+                inputClassName="bg-zinc-50"
+              />
             </div>
 
             <div className="rounded-xl border border-zinc-150 bg-zinc-50 px-3.5 py-3 text-[11px] text-zinc-500 leading-relaxed">
