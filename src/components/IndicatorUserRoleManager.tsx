@@ -241,10 +241,14 @@ export default function IndicatorUserRoleManager({ auth }: IndicatorUserRoleMana
                     type="button"
                     onClick={() => void handleRevert(profile)}
                     disabled={isPromoting}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-zinc-900 px-4 py-2.5 text-xs font-black text-white hover:bg-black disabled:opacity-60"
+                    className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black text-white transition-all duration-150 active:scale-[0.98] ${
+                      isPromoting
+                        ? 'bg-zinc-700 shadow-inner ring-2 ring-zinc-400 cursor-wait'
+                        : 'bg-zinc-900 hover:bg-black shadow-sm hover:shadow-md'
+                    } disabled:opacity-80`}
                   >
-                    <UserCog className="w-4 h-4" />
-                    Rebaixar para Operador
+                    <UserCog className={`w-4 h-4 ${isPromoting ? 'animate-spin' : ''}`} />
+                    {isPromoting ? 'Processando...' : 'Rebaixar para Operador'}
                   </button>
                 </div>
               ) : (
@@ -268,10 +272,14 @@ export default function IndicatorUserRoleManager({ auth }: IndicatorUserRoleMana
                     type="button"
                     onClick={() => void handlePromote(profile)}
                     disabled={isPromoting}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#FF5500] px-4 py-2.5 text-xs font-black text-black hover:bg-[#ff6a1a] disabled:opacity-60"
+                    className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black text-black transition-all duration-150 active:scale-[0.98] ${
+                      isPromoting
+                        ? 'bg-[#ff7a33] shadow-inner ring-2 ring-[#ffb38a] cursor-wait'
+                        : 'bg-[#FF5500] hover:bg-[#ff6a1a] shadow-sm hover:shadow-md'
+                    } disabled:opacity-80`}
                   >
-                    <UserCheck className="w-4 h-4" />
-                    Transformar em Vendedor
+                    <UserCheck className={`w-4 h-4 ${isPromoting ? 'animate-bounce' : ''}`} />
+                    {isPromoting ? 'Processando...' : 'Transformar em Vendedor'}
                   </button>
                 </div>
               )}
