@@ -8,6 +8,8 @@ import LinksAndInstructions from './components/LinksAndInstructions';
 import Settings from './components/Settings';
 import PublicClientSignup from './components/PublicClientSignup';
 import MyCopy from './components/MyCopy';
+import ControlCopySignupLinks from './components/ControlCopySignupLinks';
+import ResetPassword from './components/ResetPassword';
 import { BRANDING } from './branding';
 import Auth from './components/Auth';
 import { UserAuth } from './types';
@@ -18,6 +20,12 @@ import {
   subscribeToAuthChanges,
   signOutCurrentUser,
 } from './lib/auth';
+import {
+  APP_ROUTES,
+  extractPublicIndicatorCode,
+  isResetPasswordRoute as matchesResetPasswordRoute,
+  replaceBrowserPath,
+} from './lib/app-routes';
 
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
@@ -30,15 +38,34 @@ export default function App() {
     if (typeof window === 'undefined') {
       return null;
     }
-    const match = window.location.pathname.match(/^\/c\/([^/]+)\/?$/i);
-    return match ? match[1] : null;
+    return extractPublicIndicatorCode(window.location.pathname);
   })();
 
+  const isPasswordResetPage =
+    typeof window !== 'undefined' && matchesResetPasswordRoute(window.location.pathname);
+
   useEffect(() => {
+    if (isPasswordResetPage) {
+      setIsLoading(false);
+      return;
+    }
+
     let isMounted = true;
+    let bootstrapFinished = false;
 
     document.title = BRANDING.documentTitle;
     clearLegacyBrowserStorage();
+
+    const bootstrapGuardId = window.setTimeout(() => {
+      if (!isMounted || bootstrapFinished) {
+        return;
+      }
+
+      setAuth(null);
+      setIsAuthenticated(false);
+      setAuthNotice('Nao foi possivel restaurar sua sessao automaticamente. Entre novamente.');
+      setIsLoading(false);
+    }, 6500);
 
     const bootstrap = async () => {
       try {
@@ -51,8 +78,10 @@ export default function App() {
         setAuth(null);
         setIsAuthenticated(false);
       } finally {
+        bootstrapFinished = true;
+        window.clearTimeout(bootstrapGuardId);
         if (isMounted) {
-          setAuthNotice(consumeAuthNotice());
+          setAuthNotice((currentNotice) => currentNotice ?? consumeAuthNotice());
           setIsLoading(false);
         }
       }
@@ -64,15 +93,16 @@ export default function App() {
       if (!isMounted) return;
       setAuth(nextAuth);
       setIsAuthenticated(!!nextAuth?.email);
-      setAuthNotice(consumeAuthNotice());
+      setAuthNotice((currentNotice) => currentNotice ?? consumeAuthNotice());
       setIsLoading(false);
     });
 
     return () => {
       isMounted = false;
+      window.clearTimeout(bootstrapGuardId);
       authListener.subscription.unsubscribe();
     };
-  }, []);
+  }, [isPasswordResetPage]);
 
   const handleLoginSuccess = (userAuth: UserAuth) => {
     setAuth(userAuth);
@@ -91,6 +121,20 @@ export default function App() {
     }
   };
 
+  if (isPasswordResetPage) {
+    return (
+      <ResetPassword
+        onBackToLogin={() => {
+          setAuth(null);
+          setIsAuthenticated(false);
+          setActiveTab('dashboard');
+          setIsLoading(false);
+          replaceBrowserPath(APP_ROUTES.home);
+        }}
+      />
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-[100dvh] bg-zinc-50 flex items-center justify-center text-sm font-semibold text-zinc-500">
@@ -106,7 +150,7 @@ export default function App() {
         onSuccess={async () => {
           const profile = await getCurrentAuthProfile();
           if (profile) {
-            window.history.replaceState(null, '', '/');
+            replaceBrowserPath(APP_ROUTES.home);
             handleLoginSuccess(profile);
           }
         }}
@@ -132,8 +176,9 @@ export default function App() {
       <main className="flex-1 p-4 xl:p-8 pb-[calc(6.5rem+env(safe-area-inset-bottom))] xl:pb-8">
         {activeTab === 'dashboard' && <Dashboard onNavigate={setActiveTab} />}
         {activeTab === 'users' && <Users auth={auth} />}
-        {activeTab === 'indicators' && <Indicators />}
+        {activeTab === 'indicators' && <Indicators auth={auth} />}
         {activeTab === 'billing' && <Billing />}
+        {activeTab === 'controlcopy-signup' && <ControlCopySignupLinks auth={auth} />}
         {activeTab === 'links' && <LinksAndInstructions auth={auth} />}
         {activeTab === 'settings' && <Settings />}
         {activeTab === 'my-copy' && <MyCopy auth={auth} onNavigate={setActiveTab} />}

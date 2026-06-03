@@ -16,10 +16,15 @@ import {
   Sparkles,
   Award
 } from 'lucide-react';
-import { Indicador, UserCopy, Cobranca } from '../types';
+import { Indicador, UserCopy, Cobranca, UserAuth } from '../types';
 import { ControlCopyDB, dateUtils } from '../lib/db';
+import IndicatorUserRoleManager from './IndicatorUserRoleManager';
 
-export default function Indicators() {
+interface IndicatorsProps {
+  auth: UserAuth;
+}
+
+export default function Indicators({ auth }: IndicatorsProps) {
   const [indicators, setIndicators] = useState<Indicador[]>([]);
   const [users, setUsers] = useState<UserCopy[]>([]);
   const [cobrancas, setCobrancas] = useState<Cobranca[]>([]);
@@ -136,6 +141,8 @@ export default function Indicators() {
 
   return (
     <div className="space-y-6">
+      <IndicatorUserRoleManager auth={auth} />
+
       {/* Top action row */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div>

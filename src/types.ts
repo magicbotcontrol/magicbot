@@ -72,6 +72,18 @@ export interface UserAuth {
   indicador_id?: string | null;
 }
 
+export interface PlatformUserProfile {
+  id: string;
+  email: string;
+  nome: string;
+  level: AccessLevel;
+  whatsapp?: string;
+  indicador_id?: string | null;
+  indicador_nome?: string | null;
+  indicador_codigo_interno?: string | null;
+  created_at?: string;
+}
+
 export interface SystemLog {
   id: string;
   acao: string;

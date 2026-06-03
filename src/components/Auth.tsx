@@ -4,6 +4,8 @@ import {
   Mail, 
   User, 
   Lock, 
+  Eye,
+  EyeOff,
   ArrowRight, 
   CheckCircle2, 
   AlertCircle
@@ -24,10 +26,12 @@ export default function Auth({ onLoginSuccess, sessionNotice }: AuthProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const [regNome, setRegNome] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
+  const [showRegPassword, setShowRegPassword] = useState(false);
 
   const [recEmail, setRecEmail] = useState('');
   const [alertMsg, setAlertMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -124,7 +128,7 @@ export default function Auth({ onLoginSuccess, sessionNotice }: AuthProps) {
       await sendPasswordReset(recEmail);
       setAlertMsg({
         type: 'success',
-        text: `Instruções de redefinição de credenciais enviadas para ${recEmail} com sucesso!`,
+        text: `Solicitacao de redefinicao registrada para ${recEmail}. Verifique caixa de entrada, spam e lixo eletronico.`,
       });
 
       setTimeout(() => {
@@ -196,11 +200,19 @@ export default function Auth({ onLoginSuccess, sessionNotice }: AuthProps) {
               <div className="relative">
                 <Lock className="w-4 h-4 text-zinc-400 absolute left-3 top-3.5" />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-9 pr-3 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:border-[#FF5500]"
+                  className="w-full pl-9 pr-10 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:border-[#FF5500]"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((current) => !current)}
+                  className="absolute right-3 top-3 text-zinc-400 hover:text-zinc-700 transition-colors"
+                  aria-label={showPassword ? 'Ocultar senha' : 'Revelar senha'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 
@@ -276,14 +288,22 @@ export default function Auth({ onLoginSuccess, sessionNotice }: AuthProps) {
               <div className="relative">
                 <Lock className="w-4 h-4 text-zinc-400 absolute left-3 top-3.5" />
                 <input
-                  type="password"
+                  type={showRegPassword ? 'text' : 'password'}
                   required
                   minLength={6}
                   value={regPassword}
                   onChange={(e) => setRegPassword(e.target.value)}
                   placeholder="Minimo de 6 caracteres"
-                  className="w-full pl-9 pr-3 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none"
+                  className="w-full pl-9 pr-10 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowRegPassword((current) => !current)}
+                  className="absolute right-3 top-3 text-zinc-400 hover:text-zinc-700 transition-colors"
+                  aria-label={showRegPassword ? 'Ocultar senha' : 'Revelar senha'}
+                >
+                  {showRegPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 
@@ -319,7 +339,10 @@ export default function Auth({ onLoginSuccess, sessionNotice }: AuthProps) {
         {/* 3. RECOVER PASSWORD SCREEN */}
         {screen === 'recover' && (
           <form onSubmit={handleRecover} className="space-y-4 text-xs font-semibold text-zinc-700">
-            <p className="text-xs text-zinc-400 mb-2 leading-relaxed font-normal">Digite o seu e-mail cadastrado. Nós enviaremos um link seguro para alteração imediata da sua senha administrativa.</p>
+            <p className="text-xs text-zinc-400 mb-2 leading-relaxed font-normal">
+              Digite o seu e-mail cadastrado. Enviaremos um link seguro para alteracao da senha.
+              Se nao localizar a mensagem, verifique spam, lixo eletronico e promocoes.
+            </p>
             
             <div>
               <label className="block mb-1">E-mail Cadastrado *</label>

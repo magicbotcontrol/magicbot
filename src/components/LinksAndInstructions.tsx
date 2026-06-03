@@ -1,62 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState } from 'react';
 import { 
   Copy, 
   Check, 
   ExternalLink, 
-  Share2, 
-  HelpCircle, 
   Info, 
-  Sparkles, 
-  CheckCircle2, 
   Compass, 
-  Database,
-  ArrowUpRight
 } from 'lucide-react';
-import { ControlCopyDB } from '../lib/db';
-import { Indicador, UserAuth } from '../types';
+import { IQ_OPTION_COPY_TRADING_LINK, IQ_OPTION_REGISTRATION_LINK } from '../lib/constants/links';
+import { UserAuth } from '../types';
 
 interface LinksAndInstructionsProps {
   auth: UserAuth;
 }
 
 export default function LinksAndInstructions({ auth }: LinksAndInstructionsProps) {
-  const [indicators, setIndicators] = useState<Indicador[]>([]);
-  const [selectedIndCode, setSelectedIndCode] = useState('');
-  
-  // Clipboard copied status
   const [copiedLink, setCopiedLink] = useState<'cadastro' | 'copy' | null>(null);
-  const [copiedInvite, setCopiedInvite] = useState(false);
-
-  useEffect(() => {
-    const loadIndicators = async () => {
-      setIndicators(await ControlCopyDB.getIndicators());
-    };
-
-    loadIndicators();
-  }, []);
-
-  useEffect(() => {
-    if (auth.level !== 'Indicador' || !auth.indicador_id || indicators.length === 0) {
-      return;
-    }
-
-    const indicator = indicators.find((item) => item.id === auth.indicador_id);
-    if (indicator) {
-      setSelectedIndCode(indicator.codigo_interno);
-    }
-  }, [auth.indicador_id, auth.level, indicators]);
-
-  const baseRegLink = 'https://iqoption.net/lp/mobile-partner-pwa/?aff=417345&aff_model=revenue';
-  const finalRegLink = selectedIndCode ? `${baseRegLink}&afftrack=${selectedIndCode}` : baseRegLink;
-  const copyTradingLink = 'https://iqoption.com/pwa/copy-trading/user/178572482?aff=417345';
-  const inviteLink =
-    auth.level === 'Indicador' && auth.indicador_id
-      ? (() => {
-          const indicator = indicators.find((item) => item.id === auth.indicador_id);
-          return indicator ? `https://controlcopyiq.com/c/${indicator.codigo_interno}` : '';
-        })()
-      : '';
+  const finalRegLink = IQ_OPTION_REGISTRATION_LINK;
+  const copyTradingLink = IQ_OPTION_COPY_TRADING_LINK;
 
   const copyToClipboard = (text: string, type: 'cadastro' | 'copy') => {
     navigator.clipboard.writeText(text);
@@ -66,17 +26,11 @@ export default function LinksAndInstructions({ auth }: LinksAndInstructionsProps
     }, 2000);
   };
 
-  const copyInviteLink = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedInvite(true);
-    setTimeout(() => setCopiedInvite(false), 2000);
-  };
-
   return (
     <div className="space-y-6 max-w-4xl pb-16">
       <div>
         <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Setup Operacional & Links Rápidos</h1>
-        <p className="text-sm text-zinc-500">Acesse links de indicação conectados a afiliados e instruções de faturamento do copy trading.</p>
+        <p className="text-sm text-zinc-500">Acesse os links oficiais da IQ Option e as instrucoes operacionais do copy trading.</p>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
@@ -86,59 +40,12 @@ export default function LinksAndInstructions({ auth }: LinksAndInstructionsProps
           <div className="flex items-center gap-2 pb-2 border-b border-zinc-100">
             <Compass className="w-5 h-5 text-[#FF5500]" />
             <div>
-              <h3 className="font-bold text-sm text-zinc-900">Gerador de Links de Afiliados</h3>
-              <p className="text-[10px] text-zinc-400 font-mono">Customize links vinculando-os a códigos de parceiros</p>
+              <h3 className="font-bold text-sm text-zinc-900">Links Oficiais IQ Option</h3>
+              <p className="text-[10px] text-zinc-400 font-mono">Esta area preserva apenas os links oficiais, sem o cadastro do ControlCopy.</p>
             </div>
           </div>
 
-          {/* Quick indicator select */}
-          <div className="space-y-1.5 text-xs font-semibold">
-            <label className="text-zinc-550">Selecione o Parceiro (Opcional):</label>
-            <select
-              value={selectedIndCode}
-              onChange={(e) => setSelectedIndCode(e.target.value)}
-              className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl"
-              disabled={auth.level === 'Indicador'}
-            >
-              <option value="">Nenhum (Direto)</option>
-              {indicators.map(ind => (
-                <option key={ind.id} value={ind.codigo_interno}>{ind.nome} ({ind.codigo_interno})</option>
-              ))}
-            </select>
-          </div>
-
           <div className="space-y-4 pt-1">
-            {auth.level === 'Indicador' && inviteLink && (
-              <div className="p-4 bg-zinc-50 border border-zinc-150 rounded-xl space-y-2">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="font-bold text-zinc-800">🎯 Seu Link de Convite</span>
-                  <span className="font-mono text-[9px] text-[#FF5500] uppercase font-bold bg-zinc-200/50 px-1.5 py-0.5 rounded">
-                    ControlCopy
-                  </span>
-                </div>
-                <p className="text-xs text-zinc-500 font-mono select-all bg-white p-2 text-zinc-400 break-all rounded border border-zinc-150 cursor-pointer">
-                  {inviteLink}
-                </p>
-                <div className="flex justify-end gap-1.5 text-xs">
-                  <button
-                    onClick={() => copyInviteLink(inviteLink)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-950 text-[#FF5500] rounded-lg font-bold transition-all text-[11px] cursor-pointer"
-                  >
-                    {copiedInvite ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
-                    {copiedInvite ? 'Copiado!' : 'Copiar Convite'}
-                  </button>
-                  <a
-                    href={inviteLink}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-1 px-3 py-1.5 bg-white border border-zinc-200 hover:bg-zinc-50 rounded-lg text-zinc-700 transition"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                </div>
-              </div>
-            )}
-
             {/* Link 1: Official Registration */}
             <div className="p-4 bg-zinc-50 border border-zinc-150 rounded-xl space-y-2">
               <div className="flex justify-between items-center text-xs">

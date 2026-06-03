@@ -122,11 +122,8 @@ export default function Users({ auth }: UsersProps) {
   const isEditRecommendedMinimumBalance = editForm.bancaInicial >= 100;
   const canEditIqId = auth.level === 'Admin';
 
-  const buildRegistrationLink = (currentIndicadorId: string) => {
-    const indicadorCodigo = indicators.find((indicator) => indicator.id === currentIndicadorId)?.codigo_interno || '';
-    return `https://iqoption.net/lp/mobile-partner-pwa/?aff=417345&aff_model=revenue${
-      currentIndicadorId ? `&afftrack=${indicadorCodigo}` : ''
-    }`;
+  const buildRegistrationLink = (_currentIndicadorId: string) => {
+    return 'https://iqoption.net/lp/mobile-partner-pwa/?aff=417345&aff_model=revenue';
   };
 
   const openEditUserModal = (user: UserCopy) => {

@@ -5,6 +5,7 @@ import {
   Users, 
   Coins, 
   Link2, 
+  Share2,
   Settings, 
   Menu, 
   X, 
@@ -30,6 +31,7 @@ export default function Sidebar({ activeTab, setActiveTab, auth, onLogout }: Sid
     { id: 'users', label: 'Usuários Copy', icon: Users },
     { id: 'indicators', label: 'Indicadores', icon: UserCheck },
     { id: 'billing', label: 'Cobranças', icon: Coins },
+    { id: 'controlcopy-signup', label: 'Cadastro ControlCopy', icon: Share2 },
     { id: 'links', label: 'Links & Setup', icon: Link2 },
     { id: 'settings', label: 'Config Telegram', icon: Settings },
   ];
@@ -41,7 +43,12 @@ export default function Sidebar({ activeTab, setActiveTab, auth, onLogout }: Sid
 
     if (auth.level === 'Indicador') {
       return allMenuItems.filter(
-        (item) => item.id === 'dashboard' || item.id === 'users' || item.id === 'billing' || item.id === 'links'
+        (item) =>
+          item.id === 'dashboard' ||
+          item.id === 'users' ||
+          item.id === 'billing' ||
+          item.id === 'controlcopy-signup' ||
+          item.id === 'links'
       );
     }
 

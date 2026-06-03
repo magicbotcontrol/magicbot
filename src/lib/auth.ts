@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { AccessLevel, UserAuth } from '../types';
+import { APP_ROUTES, buildAppUrl, replaceBrowserPath } from './app-routes';
 
 interface SignUpInput {
   email: string;
@@ -138,7 +139,11 @@ async function recordAuthRecoveryTelemetry(
 
 async function signOutLocally() {
   try {
-    await supabase.auth.signOut({ scope: 'local' });
+    await withTimeout(
+      supabase.auth.signOut({ scope: 'local' }),
+      1500,
+      'Local sign out timeout while clearing session.'
+    );
   } catch {
     // Segue com limpeza local mesmo que o cliente não consiga invalidar a sessão remota.
   }
@@ -210,13 +215,11 @@ export async function getCurrentSessionUser() {
   }
 }
 
-export async function getCurrentAuthProfile(): Promise<UserAuth | null> {
-  const sessionUser = await getCurrentSessionUser();
-
-  if (!sessionUser) {
-    return null;
-  }
-
+async function resolveAuthProfileFromSessionUser(sessionUser: {
+  id: string;
+  email?: string | null;
+  user_metadata?: Record<string, unknown>;
+}): Promise<UserAuth | null> {
   try {
     const { data, error } = await withTimeout(
       supabase
@@ -256,6 +259,16 @@ export async function getCurrentAuthProfile(): Promise<UserAuth | null> {
   }
 }
 
+export async function getCurrentAuthProfile(): Promise<UserAuth | null> {
+  const sessionUser = await getCurrentSessionUser();
+
+  if (!sessionUser) {
+    return null;
+  }
+
+  return resolveAuthProfileFromSessionUser(sessionUser);
+}
+
 export async function signInWithEmail(email: string, password: string) {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
@@ -273,7 +286,7 @@ export async function signUpWithEmail(input: SignUpInput) {
     email: input.email,
     password: input.password,
     options: {
-      emailRedirectTo: window.location.origin,
+      emailRedirectTo: buildAppUrl(APP_ROUTES.home),
       data: {
         nome: input.nome,
         level: desiredLevel,
@@ -295,8 +308,54 @@ export async function signUpWithEmail(input: SignUpInput) {
 
 export async function sendPasswordReset(email: string) {
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.origin,
+    redirectTo: buildAppUrl(APP_ROUTES.resetPassword),
   });
+
+  if (error) {
+    throw error;
+  }
+}
+
+export async function completePasswordRecoveryFromUrl() {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const query = new URLSearchParams(window.location.search);
+
+  const accessToken = hash.get('access_token') || query.get('access_token');
+  const refreshToken = hash.get('refresh_token') || query.get('refresh_token');
+  const type = hash.get('type') || query.get('type');
+  const code = query.get('code');
+
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      throw error;
+    }
+    return true;
+  }
+
+  if (type !== 'recovery' || !accessToken || !refreshToken) {
+    return false;
+  }
+
+  const { error } = await supabase.auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  replaceBrowserPath(APP_ROUTES.resetPassword);
+  return true;
+}
+
+export async function updateCurrentUserPassword(newPassword: string) {
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
 
   if (error) {
     throw error;
@@ -307,18 +366,28 @@ export async function signOutCurrentUser() {
   await signOutLocally();
 }
 
-export function subscribeToAuthChanges(callback: (auth: UserAuth | null) => void) {
-  return supabase.auth.onAuthStateChange(async (_event, session) => {
-    if (!session?.user) {
-      callback(null);
-      return;
-    }
+function scheduleAuthStateResolution(task: () => void) {
+  if (typeof window === 'undefined') {
+    task();
+    return;
+  }
 
-    try {
-      const profile = await getCurrentAuthProfile();
-      callback(profile);
-    } catch {
-      callback(normalizeUserAuth(session.user));
-    }
+  window.setTimeout(task, 0);
+}
+
+export function subscribeToAuthChanges(callback: (auth: UserAuth | null) => void) {
+  return supabase.auth.onAuthStateChange((_event, session) => {
+    scheduleAuthStateResolution(() => {
+      if (!session?.user) {
+        callback(null);
+        return;
+      }
+
+      void resolveAuthProfileFromSessionUser(session.user)
+        .then((profile) => callback(profile))
+        .catch(() => {
+          callback(normalizeUserAuth(session.user));
+        });
+    });
   });
 }
