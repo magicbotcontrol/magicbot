@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Confirmar email - MAGICBOT</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; background: #f8fafc; color: #334155; margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .card { width: 100%; max-width: 420px; background: #fff; border: 1px solid #e2e8f0; border-radius: 20px; padding: 28px; box-shadow: 0 20px 40px rgba(0,0,0,.08); text-align: center; }
+    h1 { margin: 0 0 8px; font-size: 26px; color: #0f172a; }
+    p { margin: 0; line-height: 1.6; color: #64748b; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>MAGICBOT</h1>
+    <p>Confirmando seu email e abrindo a plataforma...</p>
+  </div>
+  <script>
+    const target = new URL('/', window.location.origin);
+    const params = new URLSearchParams(window.location.search);
+    params.set('authView', 'confirm-email');
+    target.search = params.toString();
+    target.hash = window.location.hash;
+    window.location.replace(target.toString());
+  </script>
+</body>
+</html>
