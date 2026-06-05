@@ -79,8 +79,12 @@ export function AdminTab({
   setSignalsFeedDate,
   setSignalsFeedText,
   saveSignalsFeed,
-  grantSignalsAccess,
-  revokeSignalsAccess
+  grantDailyListAccess,
+  revokeDailyListAccess,
+  grantAutomatorAccess,
+  revokeAutomatorAccess,
+  grantSignalsBundleAccess,
+  revokeSignalsBundleAccess
 }) {
   return (
     <div className="space-y-6 animate-fade-in">
@@ -120,7 +124,7 @@ export function AdminTab({
           <div>
             <h3 className="text-base font-bold text-gray-900 dark:text-white">Publicar Lista Diária</h3>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Cadastre somente as linhas padronizadas `M5;ATIVO;HH:MM;CALL/PUT` para liberar o produto avulso.
+              Cadastre somente as linhas padronizadas `M5;ATIVO;HH:MM;CALL/PUT` para liberar o conteúdo Sinais Diários Premium.
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -377,8 +381,12 @@ export function AdminTab({
         details={workspaceDetails}
         isLoading={isWorkspaceDetailsLoading}
         t={t}
-        grantSignalsAccess={grantSignalsAccess}
-        revokeSignalsAccess={revokeSignalsAccess}
+        grantDailyListAccess={grantDailyListAccess}
+        revokeDailyListAccess={revokeDailyListAccess}
+        grantAutomatorAccess={grantAutomatorAccess}
+        revokeAutomatorAccess={revokeAutomatorAccess}
+        grantSignalsBundleAccess={grantSignalsBundleAccess}
+        revokeSignalsBundleAccess={revokeSignalsBundleAccess}
         isGrantingSignalsAccess={isGrantingSignalsAccess}
       />
 

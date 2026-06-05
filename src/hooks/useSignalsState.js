@@ -4,7 +4,7 @@ import { getDailySignalFeedByDate } from '../services/supabaseSignalFeed';
 import { getWorkspaceBootstrap, updateWorkspaceRuntime } from '../services/supabaseWorkspace';
 import { parseSignalsText } from '../utils/signalParser';
 
-export function useSignalsState({ workspaceId, isLoggedIn, remainingDays, hasSignalsListAccess, t, showToast, playAlertSound, setActiveTab, entryValue }) {
+export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, hasDailyListAccess, t, showToast, playAlertSound, setActiveTab, entryValue }) {
   const initialDate = new Date().toLocaleDateString('en-CA');
   const [botStatus, setBotStatus] = useState('offline');
   const [signalsText, setSignalsText] = useState('');
@@ -14,8 +14,9 @@ export function useSignalsState({ workspaceId, isLoggedIn, remainingDays, hasSig
   const [isSignalsLoading, setIsSignalsLoading] = useState(false);
   const [isSignalsSaving, setIsSignalsSaving] = useState(false);
   const fileInputRef = useRef(null);
-  const canUseSignals = remainingDays > 0 || hasSignalsListAccess;
-  const canStartBot = remainingDays > 0;
+  const canEditSignals = Boolean(hasAutomatorAccess);
+  const canUseSignals = Boolean(hasAutomatorAccess);
+  const canStartBot = Boolean(hasAutomatorAccess);
 
   useEffect(() => {
     let mounted = true;
@@ -39,7 +40,7 @@ export function useSignalsState({ workspaceId, isLoggedIn, remainingDays, hasSig
           return;
         }
 
-        if (hasSignalsListAccess) {
+        if (hasDailyListAccess) {
           try {
             const feed = await getDailySignalFeedByDate(selectedDate);
             if (!mounted) return;
@@ -54,8 +55,8 @@ export function useSignalsState({ workspaceId, isLoggedIn, remainingDays, hasSig
         }
 
         setSignalsText('');
-        setLiveSignals(signalsData.liveOperations || []);
-        setIsReadOnly(false);
+        setLiveSignals(canEditSignals ? (signalsData.liveOperations || []) : []);
+        setIsReadOnly(!canEditSignals);
       })
       .catch(() => {
         if (!mounted) return;
@@ -69,7 +70,7 @@ export function useSignalsState({ workspaceId, isLoggedIn, remainingDays, hasSig
     return () => {
       mounted = false;
     };
-  }, [workspaceId, isLoggedIn, selectedDate, showToast, t]);
+  }, [workspaceId, isLoggedIn, selectedDate, showToast, t, hasDailyListAccess, canEditSignals]);
 
   const parsedSignals = useMemo(() => parseSignalsText(signalsText, t), [signalsText, t]);
 
@@ -106,7 +107,7 @@ export function useSignalsState({ workspaceId, isLoggedIn, remainingDays, hasSig
 
   const handleSaveSignals = async () => {
     if (!canUseSignals) {
-      showToast(t.avisoExpirado);
+      showToast(t.automatorRequired || t.avisoExpirado);
       setActiveTab('shop');
       return;
     }
@@ -143,6 +144,11 @@ export function useSignalsState({ workspaceId, isLoggedIn, remainingDays, hasSig
   };
 
   const handleClearSignals = () => {
+    if (!canUseSignals) {
+      showToast(t.automatorRequired || t.avisoExpirado);
+      setActiveTab('shop');
+      return;
+    }
     if (isReadOnly) {
       showToast('Esta lista é protegida.');
       return;
@@ -181,6 +187,19 @@ export function useSignalsState({ workspaceId, isLoggedIn, remainingDays, hasSig
   };
 
   const handleFileUpload = (e) => {
+    if (!canUseSignals) {
+      showToast(t.automatorRequired || t.avisoExpirado);
+      setActiveTab('shop');
+      e.target.value = null;
+      return;
+    }
+
+    if (isReadOnly) {
+      showToast('Esta lista é protegida.');
+      e.target.value = null;
+      return;
+    }
+
     const file = e.target.files[0];
     if (!file) {
       return;
@@ -202,7 +221,8 @@ export function useSignalsState({ workspaceId, isLoggedIn, remainingDays, hasSig
     selectedDate,
     setSelectedDate: loadSignalsByDate,
     liveSignals,
-    isSignalsReadOnly: isReadOnly,
+    isSignalsReadOnly: isReadOnly || !canEditSignals,
+    canEditSignals,
     canStartBot,
     isSignalsLoading,
     isSignalsSaving,

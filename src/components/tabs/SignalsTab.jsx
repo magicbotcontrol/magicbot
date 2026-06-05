@@ -7,6 +7,7 @@ export function SignalsTab({
   botStatus,
   handleStartBot,
   canStartBot,
+  canEditSignals,
   signalsText,
   setSignalsText,
   isSignalsReadOnly,
@@ -29,7 +30,7 @@ export function SignalsTab({
         <div className="bg-white dark:bg-[#1E293B] rounded-2xl shadow-sm border border-gray-200 dark:border-[#334155] p-6 relative overflow-hidden">
           {botStatus === 'running' && <div className="absolute inset-0 bg-[#FF6B00]/5 animate-pulse rounded-2xl" />}
           <h2 className="text-base font-bold text-gray-900 dark:text-white mb-3 flex items-center">
-            <Icons.Cpu /> <span className="ml-2">{t.statusAuto}</span>
+            <Icons.Signals /> <span className="ml-2">{t.statusAuto}</span>
           </h2>
           <button
             onClick={handleStartBot}
@@ -65,18 +66,18 @@ export function SignalsTab({
           <textarea
             value={signalsText}
             onChange={(e) => {
-              if (isSignalsReadOnly) return;
+              if (isSignalsReadOnly || !canEditSignals) return;
               setSignalsText(e.target.value);
             }}
             className="flex-1 w-full bg-gray-50 dark:bg-[#334155] border border-gray-200 dark:border-[#475569] rounded-xl p-3 font-mono text-xs text-gray-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-[#FF6B00] resize-none custom-scrollbar"
             placeholder="M5;EURUSD;14:00;CALL"
-            readOnly={Boolean(isSignalsReadOnly)}
+            readOnly={Boolean(isSignalsReadOnly) || !canEditSignals}
           />
           <div className="flex space-x-3 mt-4">
-            <button onClick={handleSaveSignals} disabled={isSignalsSaving || Boolean(isSignalsReadOnly)} className="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-60 text-gray-800 dark:text-white font-medium py-2 rounded-lg text-xs flex items-center justify-center transition-colors">
+            <button onClick={handleSaveSignals} disabled={isSignalsSaving || Boolean(isSignalsReadOnly) || !canEditSignals} className="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-60 text-gray-800 dark:text-white font-medium py-2 rounded-lg text-xs flex items-center justify-center transition-colors">
               <Icons.Save /> {t.save}
             </button>
-            <button onClick={handleClearSignals} className="flex-1 bg-red-50 dark:bg-red-950/20 hover:bg-red-100 text-red-600 dark:text-red-400 font-medium py-2 rounded-lg text-xs flex items-center justify-center transition-colors">
+            <button onClick={handleClearSignals} disabled={Boolean(isSignalsReadOnly) || !canEditSignals} className="flex-1 bg-red-50 dark:bg-red-950/20 hover:bg-red-100 disabled:opacity-60 text-red-600 dark:text-red-400 font-medium py-2 rounded-lg text-xs flex items-center justify-center transition-colors">
               <Icons.Trash /> {t.clear}
             </button>
           </div>
@@ -96,7 +97,7 @@ export function SignalsTab({
             </div>
             <div className="flex space-x-2">
               <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".txt,.csv" className="hidden" />
-              <button disabled={Boolean(isSignalsReadOnly)} onClick={() => fileInputRef.current?.click()} className="px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-[#CBD5E1] bg-gray-50 dark:bg-[#111827] border border-gray-200 dark:border-[#1F2A3A] rounded-lg hover:bg-gray-100 dark:hover:bg-[#162033] transition-colors disabled:cursor-not-allowed disabled:opacity-40">{t.import}</button>
+              <button disabled={Boolean(isSignalsReadOnly) || !canEditSignals} onClick={() => fileInputRef.current?.click()} className="px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-[#CBD5E1] bg-gray-50 dark:bg-[#111827] border border-gray-200 dark:border-[#1F2A3A] rounded-lg hover:bg-gray-100 dark:hover:bg-[#162033] transition-colors disabled:cursor-not-allowed disabled:opacity-40">{t.import}</button>
               <button onClick={handleExport} className="px-3 py-1.5 text-xs font-semibold text-white rounded-lg hover:bg-opacity-90 transition-colors" style={{ backgroundColor: colors.primary }}>{t.export}</button>
             </div>
           </div>
@@ -118,7 +119,7 @@ export function SignalsTab({
                 {parsedSignals.length === 0 ? (
                   <tr>
                     <td colSpan="7" className="p-8 text-center text-gray-400 dark:text-[#64748B]">
-                      {isSignalsLoading ? t.loadingSignals : t.noSignalsFound}
+                      {isSignalsLoading ? t.loadingSignals : isSignalsReadOnly && !canEditSignals ? (t.waitingDailyList || 'Aguardando lista diária publicada pelo admin.') : t.noSignalsFound}
                     </td>
                   </tr>
                 ) : (

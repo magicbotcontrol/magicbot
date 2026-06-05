@@ -15,7 +15,7 @@ import { AffiliatesTab } from './components/tabs/AffiliatesTab';
 import { AiTab } from './components/tabs/AiTab';
 import { CopyTab } from './components/tabs/CopyTab';
 import { DashboardTab } from './components/tabs/DashboardTab';
-import { LiveTab } from './components/tabs/LiveTab';
+import { DailySignalsTab } from './components/tabs/DailySignalsTab';
 import { SettingsTab } from './components/tabs/SettingsTab';
 import { ShopTab } from './components/tabs/ShopTab';
 import { SignalsTab } from './components/tabs/SignalsTab';
@@ -54,8 +54,8 @@ export default function App() {
   const signals = useSignalsState({
     workspaceId: workspace.workspaceId,
     isLoggedIn: session.isLoggedIn,
-    remainingDays: license.remainingDays,
-    hasSignalsListAccess: signalsEntitlement.isSignalsListActive || session.isAdmin,
+    hasAutomatorAccess: signalsEntitlement.isSignalsAutomatorActive || session.isAdmin,
+    hasDailyListAccess: signalsEntitlement.isSignalsDailyListActive || session.isAdmin,
     t: ui.t,
     showToast: ui.showToast,
     playAlertSound,
@@ -63,7 +63,7 @@ export default function App() {
     entryValue: settings.config.entryValue
   });
 
-  const isSignalsOnly = !session.isAdmin && license.remainingDays <= 0 && signalsEntitlement.isSignalsListActive;
+  const isSignalsOnly = !session.isAdmin && !signalsEntitlement.isSignalsAutomatorActive && signalsEntitlement.isSignalsDailyListActive;
   const visibleTabs = isSignalsOnly ? ['signals', 'account', 'shop'] : null;
 
   useEffect(() => {
@@ -147,14 +147,15 @@ export default function App() {
   };
 
   const renderActiveTab = () => {
-    const isSignalsUnlocked = session.isAdmin || license.remainingDays > 0 || signalsEntitlement.isSignalsListActive;
+    const isSignalsUnlocked = session.isAdmin || signalsEntitlement.isSignalsAutomatorActive || signalsEntitlement.isSignalsDailyListActive;
+    const isPremiumBlocked = !session.isAdmin && !signalsEntitlement.isSignalsAutomatorActive;
     const premiumTabs = new Set(['live', 'strategies', 'ai', 'copy', 'settings']);
     if (!isSignalsUnlocked) {
       premiumTabs.add('signals');
       premiumTabs.add('account');
     }
 
-    if (license.isPremiumBlocked && premiumTabs.has(ui.activeTab)) {
+    if (isPremiumBlocked && premiumTabs.has(ui.activeTab)) {
       return <PremiumBlockedTab t={ui.t} setActiveTab={ui.setActiveTab} />;
     }
 
@@ -178,6 +179,7 @@ export default function App() {
             botStatus={signals.botStatus}
             handleStartBot={signals.handleStartBot}
             canStartBot={signals.canStartBot}
+            canEditSignals={signals.canEditSignals}
             signalsText={signals.signalsText}
             setSignalsText={signals.setSignalsText}
             isSignalsReadOnly={signals.isSignalsReadOnly}
@@ -197,14 +199,10 @@ export default function App() {
         );
       case 'live':
         return (
-          <LiveTab
-            liveSignals={signals.liveSignals}
-            botStatus={signals.botStatus}
-            handleStartBot={signals.handleStartBot}
+          <DailySignalsTab
             t={ui.t}
-            formatMoney={ui.formatMoney}
-            baseBalance={(broker.brokersList.find((b) => b.status === 'Linked' && b.name === settings.config.broker) || broker.brokersList.find((b) => b.status === 'Linked'))?.balance ?? 0}
-            baseBalanceCurrency={(broker.brokersList.find((b) => b.status === 'Linked' && b.name === settings.config.broker) || broker.brokersList.find((b) => b.status === 'Linked'))?.baseCurrency ?? 'USD'}
+            showToast={ui.showToast}
+            canViewDailyList={session.isAdmin || signalsEntitlement.isSignalsDailyListActive}
           />
         );
       case 'strategies':
@@ -295,8 +293,12 @@ export default function App() {
             setSignalsFeedDate={admin.setSignalsFeedDate}
             setSignalsFeedText={admin.setSignalsFeedText}
             saveSignalsFeed={admin.saveSignalsFeed}
-            grantSignalsAccess={admin.grantSignalsAccess}
-            revokeSignalsAccess={admin.revokeSignalsAccess}
+            grantDailyListAccess={admin.grantDailyListAccess}
+            revokeDailyListAccess={admin.revokeDailyListAccess}
+            grantAutomatorAccess={admin.grantAutomatorAccess}
+            revokeAutomatorAccess={admin.revokeAutomatorAccess}
+            grantSignalsBundleAccess={admin.grantSignalsBundleAccess}
+            revokeSignalsBundleAccess={admin.revokeSignalsBundleAccess}
           />
         );
       case 'settings':
@@ -409,6 +411,13 @@ export default function App() {
         visibleTabs={visibleTabs}
       />
 
+      {ui.isSidebarOpen ? (
+        <div
+          className="lg:hidden fixed inset-0 bg-black/40 z-10"
+          onClick={() => ui.setIsSidebarOpen(false)}
+        />
+      ) : null}
+
       <div className="flex-1 flex flex-col h-screen overflow-hidden pb-20 lg:pb-0">
         <AppHeader
           activeTab={ui.activeTab}
@@ -444,10 +453,10 @@ export default function App() {
 
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-[#1E293B] border-t border-gray-200 dark:border-[#334155] h-16 flex justify-around items-center z-40 px-2 pb-safe overflow-visible">
         {!isSignalsOnly ? <MobileNavItem icon={Icons.Dashboard} label="Dash" active={ui.activeTab === 'dashboard'} onClick={() => ui.setActiveTab('dashboard')} /> : null}
-        {!isSignalsOnly ? <MobileNavItem icon={Icons.Activity} label="Ao Vivo" active={ui.activeTab === 'live'} onClick={() => ui.setActiveTab('live')} /> : null}
-        <MobileNavItem prominent icon={Icons.Signals} label="Sinais" active={ui.activeTab === 'signals'} onClick={() => ui.setActiveTab('signals')} />
-        {!isSignalsOnly ? <MobileNavItem icon={Icons.Settings} label="Config" active={ui.activeTab === 'settings'} onClick={() => ui.setActiveTab('settings')} /> : null}
+        {!isSignalsOnly ? <MobileNavItem icon={Icons.Activity} label="Sinais" active={ui.activeTab === 'live'} onClick={() => ui.setActiveTab('live')} /> : null}
+        <MobileNavItem prominent icon={Icons.Signals} label="Auto" active={ui.activeTab === 'signals'} onClick={() => ui.setActiveTab('signals')} />
         <MobileNavItem icon={Icons.ShoppingBag} label="Loja" active={ui.activeTab === 'shop'} onClick={() => ui.setActiveTab('shop')} />
+        <MobileNavItem icon={Icons.Menu} label="Menu" active={ui.isSidebarOpen} onClick={() => ui.setIsSidebarOpen(!ui.isSidebarOpen)} />
       </div>
 
       <BrokerLinkModal

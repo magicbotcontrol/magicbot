@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { getAdminOverview, getAdminWorkspaceDetails } from '../services/supabaseAdmin';
 import { getAdminDailySignalFeed, saveAdminDailySignalFeed } from '../services/supabaseAdminSignals';
-import { adminGrantSignalsEntitlement, adminRevokeSignalsEntitlement } from '../services/supabaseEntitlements';
+import {
+  adminGrantAutomatorEntitlement,
+  adminGrantSignalsBundleEntitlement,
+  adminGrantSignalsEntitlement,
+  adminRevokeAutomatorEntitlement,
+  adminRevokeSignalsBundleEntitlement,
+  adminRevokeSignalsEntitlement
+} from '../services/supabaseEntitlements';
 import { grantUserMonthlyWaiver } from '../services/supabaseLicense';
 
 const EMPTY_OVERVIEW = {
@@ -270,7 +277,7 @@ export function useAdminState(isAdmin, showToast, t) {
     }
   };
 
-  const grantSignalsAccess = async (days) => {
+  const grantDailyListAccess = async (days) => {
     if (!selectedWorkspaceId) return false;
     setIsGrantingSignalsAccess(true);
     try {
@@ -281,7 +288,7 @@ export function useAdminState(isAdmin, showToast, t) {
       ]);
       setOverview(nextOverview);
       setWorkspaceDetails(details);
-      showToastRef.current(`Acesso ao produto Lista de Sinais liberado por ${days} dias.`);
+      showToastRef.current(`Acesso ao produto Sinais Diários Premium liberado por ${days} dias.`);
       return true;
     } catch {
       showToastRef.current(t.supabaseSaveError);
@@ -291,7 +298,7 @@ export function useAdminState(isAdmin, showToast, t) {
     }
   };
 
-  const revokeSignalsAccess = async () => {
+  const revokeDailyListAccess = async () => {
     if (!selectedWorkspaceId) return false;
     setIsGrantingSignalsAccess(true);
     try {
@@ -302,7 +309,91 @@ export function useAdminState(isAdmin, showToast, t) {
       ]);
       setOverview(nextOverview);
       setWorkspaceDetails(details);
-      showToastRef.current('Acesso ao produto Lista de Sinais revogado.');
+      showToastRef.current('Acesso ao produto Sinais Diários Premium revogado.');
+      return true;
+    } catch {
+      showToastRef.current(t.supabaseSaveError);
+      return false;
+    } finally {
+      setIsGrantingSignalsAccess(false);
+    }
+  };
+
+  const grantAutomatorAccess = async (days) => {
+    if (!selectedWorkspaceId) return false;
+    setIsGrantingSignalsAccess(true);
+    try {
+      await adminGrantAutomatorEntitlement(selectedWorkspaceId, days, `Liberado via admin por ${days} dias`);
+      const [nextOverview, details] = await Promise.all([
+        loadOverview(),
+        loadWorkspaceDetails(selectedWorkspaceId)
+      ]);
+      setOverview(nextOverview);
+      setWorkspaceDetails(details);
+      showToastRef.current(`Acesso ao produto AutoTrader (Lista) liberado por ${days} dias.`);
+      return true;
+    } catch {
+      showToastRef.current(t.supabaseSaveError);
+      return false;
+    } finally {
+      setIsGrantingSignalsAccess(false);
+    }
+  };
+
+  const revokeAutomatorAccess = async () => {
+    if (!selectedWorkspaceId) return false;
+    setIsGrantingSignalsAccess(true);
+    try {
+      await adminRevokeAutomatorEntitlement(selectedWorkspaceId, 'Revogado via painel admin');
+      const [nextOverview, details] = await Promise.all([
+        loadOverview(),
+        loadWorkspaceDetails(selectedWorkspaceId)
+      ]);
+      setOverview(nextOverview);
+      setWorkspaceDetails(details);
+      showToastRef.current('Acesso ao produto AutoTrader (Lista) revogado.');
+      return true;
+    } catch {
+      showToastRef.current(t.supabaseSaveError);
+      return false;
+    } finally {
+      setIsGrantingSignalsAccess(false);
+    }
+  };
+
+  const grantSignalsBundleAccess = async (days) => {
+    if (!selectedWorkspaceId) return false;
+    setIsGrantingSignalsAccess(true);
+    try {
+      await adminGrantSignalsBundleEntitlement(selectedWorkspaceId, days, `Liberado via admin por ${days} dias`);
+      const [nextOverview, details] = await Promise.all([
+        loadOverview(),
+        loadWorkspaceDetails(selectedWorkspaceId)
+      ]);
+      setOverview(nextOverview);
+      setWorkspaceDetails(details);
+      showToastRef.current(`AutoTrader (Lista) + Sinais Diários Premium liberados por ${days} dias.`);
+      return true;
+    } catch {
+      showToastRef.current(t.supabaseSaveError);
+      return false;
+    } finally {
+      setIsGrantingSignalsAccess(false);
+    }
+  };
+
+  const revokeSignalsBundleAccess = async () => {
+    if (!selectedWorkspaceId) return false;
+    setIsGrantingSignalsAccess(true);
+    try {
+      await adminRevokeSignalsBundleEntitlement(selectedWorkspaceId, 'Revogado via painel admin');
+      const [nextOverview, details] = await Promise.all([
+        loadOverview(),
+        loadWorkspaceDetails(selectedWorkspaceId)
+      ]);
+      setOverview(nextOverview);
+      setWorkspaceDetails(details);
+      showToastRef.current('AutoTrader (Lista) + Sinais Diários Premium revogados.');
       return true;
     } catch {
       showToastRef.current(t.supabaseSaveError);
@@ -347,7 +438,11 @@ export function useAdminState(isAdmin, showToast, t) {
     setSignalsFeedDate,
     setSignalsFeedText,
     saveSignalsFeed,
-    grantSignalsAccess,
-    revokeSignalsAccess
+    grantDailyListAccess,
+    revokeDailyListAccess,
+    grantAutomatorAccess,
+    revokeAutomatorAccess,
+    grantSignalsBundleAccess,
+    revokeSignalsBundleAccess
   };
 }

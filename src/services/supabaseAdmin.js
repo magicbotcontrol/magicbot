@@ -167,7 +167,7 @@ export async function getAdminOverview() {
 export async function getAdminWorkspaceDetails(workspaceId) {
   assertSupabase();
 
-  const [workspaceResult, preferencesResult, runtimeResult, brokersResult, settingsResult, licenseResult, signalListsResult, liveOperationsResult, licenseEventsResult, entitlementsResult] = await Promise.all([
+  const [workspaceResult, preferencesResult, runtimeResult, brokersResult, settingsResult, licenseResult, signalListsResult, liveOperationsResult, licenseEventsResult, dailyEntitlementsResult, automatorEntitlementsResult] = await Promise.all([
     supabase
       .from('app_workspaces')
       .select('id, slug, name, owner_user_id, created_at')
@@ -217,7 +217,13 @@ export async function getAdminWorkspaceDetails(workspaceId) {
       .from('workspace_entitlements')
       .select('*')
       .eq('workspace_id', workspaceId)
-      .eq('product_code', 'signals_list')
+      .eq('product_code', 'signals_daily_list')
+      .maybeSingle(),
+    supabase
+      .from('workspace_entitlements')
+      .select('*')
+      .eq('workspace_id', workspaceId)
+      .eq('product_code', 'signals_automator')
       .maybeSingle()
   ]);
 
@@ -230,7 +236,8 @@ export async function getAdminWorkspaceDetails(workspaceId) {
   if (signalListsResult.error) throw signalListsResult.error;
   if (liveOperationsResult.error) throw liveOperationsResult.error;
   if (licenseEventsResult.error) throw licenseEventsResult.error;
-  if (entitlementsResult.error) throw entitlementsResult.error;
+  if (dailyEntitlementsResult.error) throw dailyEntitlementsResult.error;
+  if (automatorEntitlementsResult.error) throw automatorEntitlementsResult.error;
 
   const ownerResult = await supabase
     .from('profiles')
@@ -278,7 +285,8 @@ export async function getAdminWorkspaceDetails(workspaceId) {
     license: mapLicenseRow(licenseResult.data),
     licenseHistory: licenseEventsResult.data || [],
     entitlements: {
-      signalsList: entitlementsResult.data || null
+      signalsDailyList: dailyEntitlementsResult.data || null,
+      signalsAutomator: automatorEntitlementsResult.data || null
     },
     performance: {
       signalListsCount: signalMetrics.lists,

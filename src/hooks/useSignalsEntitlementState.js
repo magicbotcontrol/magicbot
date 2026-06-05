@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { getWorkspaceSignalsEntitlement } from '../services/supabaseEntitlements';
+import { getWorkspaceAutomatorEntitlement, getWorkspaceSignalsEntitlement } from '../services/supabaseEntitlements';
 
 const EMPTY = {
   status: 'inactive',
@@ -10,7 +10,8 @@ const EMPTY = {
 export function useSignalsEntitlementState(workspaceId, isLoggedIn, showToast, t) {
   const showToastRef = useRef(showToast);
   const errorMessageRef = useRef(t.supabaseSyncError);
-  const [entitlement, setEntitlement] = useState(EMPTY);
+  const [dailyListEntitlement, setDailyListEntitlement] = useState(EMPTY);
+  const [automatorEntitlement, setAutomatorEntitlement] = useState(EMPTY);
   const [isEntitlementLoading, setIsEntitlementLoading] = useState(false);
 
   useEffect(() => {
@@ -22,21 +23,27 @@ export function useSignalsEntitlementState(workspaceId, isLoggedIn, showToast, t
     let mounted = true;
 
     if (!isLoggedIn || !workspaceId) {
-      setEntitlement(EMPTY);
+      setDailyListEntitlement(EMPTY);
+      setAutomatorEntitlement(EMPTY);
       setIsEntitlementLoading(false);
       return undefined;
     }
 
     setIsEntitlementLoading(true);
 
-    getWorkspaceSignalsEntitlement(workspaceId)
-      .then((data) => {
+    Promise.all([
+      getWorkspaceSignalsEntitlement(workspaceId),
+      getWorkspaceAutomatorEntitlement(workspaceId)
+    ])
+      .then(([daily, automator]) => {
         if (!mounted) return;
-        setEntitlement(data || EMPTY);
+        setDailyListEntitlement(daily || EMPTY);
+        setAutomatorEntitlement(automator || EMPTY);
       })
       .catch(() => {
         if (!mounted) return;
-        setEntitlement(EMPTY);
+        setDailyListEntitlement(EMPTY);
+        setAutomatorEntitlement(EMPTY);
         showToastRef.current(errorMessageRef.current);
       })
       .finally(() => {
@@ -49,12 +56,14 @@ export function useSignalsEntitlementState(workspaceId, isLoggedIn, showToast, t
     };
   }, [workspaceId, isLoggedIn]);
 
-  const isSignalsListActive = entitlement.status === 'active' && entitlement.remainingDays > 0;
+  const isSignalsDailyListActive = dailyListEntitlement.status === 'active' && dailyListEntitlement.remainingDays > 0;
+  const isSignalsAutomatorActive = automatorEntitlement.status === 'active' && automatorEntitlement.remainingDays > 0;
 
   return {
-    signalsEntitlement: entitlement,
+    dailyListEntitlement,
+    automatorEntitlement,
     isEntitlementLoading,
-    isSignalsListActive
+    isSignalsDailyListActive,
+    isSignalsAutomatorActive
   };
 }
-
