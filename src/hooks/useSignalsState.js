@@ -15,6 +15,7 @@ export function useSignalsState({ workspaceId, isLoggedIn, remainingDays, hasSig
   const [isSignalsSaving, setIsSignalsSaving] = useState(false);
   const fileInputRef = useRef(null);
   const canUseSignals = remainingDays > 0 || hasSignalsListAccess;
+  const canStartBot = remainingDays > 0;
 
   useEffect(() => {
     let mounted = true;
@@ -75,7 +76,7 @@ export function useSignalsState({ workspaceId, isLoggedIn, remainingDays, hasSig
   const validCount = parsedSignals.filter((signal) => signal.isValid).length;
 
   const handleStartBot = async () => {
-    if (!canUseSignals) {
+    if (!canStartBot) {
       showToast(t.avisoExpirado);
       setActiveTab('shop');
       return;
@@ -107,6 +108,11 @@ export function useSignalsState({ workspaceId, isLoggedIn, remainingDays, hasSig
     if (!canUseSignals) {
       showToast(t.avisoExpirado);
       setActiveTab('shop');
+      return;
+    }
+
+    if (isReadOnly) {
+      showToast('Esta lista é publicada pelo admin e não pode ser sobrescrita aqui.');
       return;
     }
 
@@ -197,6 +203,7 @@ export function useSignalsState({ workspaceId, isLoggedIn, remainingDays, hasSig
     setSelectedDate: loadSignalsByDate,
     liveSignals,
     isSignalsReadOnly: isReadOnly,
+    canStartBot,
     isSignalsLoading,
     isSignalsSaving,
     fileInputRef,

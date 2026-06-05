@@ -2,7 +2,7 @@ import { Icons } from '../../constants/icons';
 import { useState } from 'react';
 import { AUTH_FEEDBACK_STATUS } from '../../utils/authFeedback';
 
-export function LoginScreen({ handleLogIn, t, isAuthLoading, isAuthSubmitting, authFeedback, clearAuthFeedback }) {
+export function LoginScreen({ handleLogIn, t, isAuthLoading, isAuthSubmitting, authFeedback, clearAuthFeedback, onForgotPassword }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [referralCode, setReferralCode] = useState('');
@@ -161,6 +161,16 @@ export function LoginScreen({ handleLogIn, t, isAuthLoading, isAuthSubmitting, a
             className="w-full py-3.5 bg-gray-100 text-gray-700 font-bold text-xs rounded-xl hover:bg-gray-200 transition-all disabled:opacity-60"
           >
             {t.createAccount}
+          </button>
+        </div>
+
+        <div className="text-center">
+          <button
+            type="button"
+            onClick={onForgotPassword}
+            className="text-xs text-[#FF6B00] font-semibold hover:text-[#FF7F1F] transition-colors"
+          >
+            {t.forgotPasswordTitle}
           </button>
         </div>
         {authFeedback.message ? (

@@ -12,6 +12,16 @@ export function useSessionState(showToast, t) {
     setAuthFeedback(createAuthFeedback());
   };
 
+  const getAppBaseUrl = () => {
+    const configuredUrl = import.meta.env.VITE_APP_URL?.trim();
+    const fallbackUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const baseUrl = configuredUrl || fallbackUrl;
+
+    return baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+  };
+
+  const getRedirectUrl = (path) => `${getAppBaseUrl()}${path}`;
+
   useEffect(() => {
     let mounted = true;
 
@@ -98,6 +108,7 @@ export function useSessionState(showToast, t) {
         email,
         password,
         options: {
+          emailRedirectTo: getRedirectUrl('/confirm-email.html'),
           data: {
             referral_code: referralCode || null
           }
@@ -140,6 +151,56 @@ export function useSessionState(showToast, t) {
     return { ok: true };
   };
 
+  const handleResetPassword = async (email) => {
+    if (!supabaseEnabled || !supabase) {
+      showToast(t.supabaseConnectionError);
+      setAuthFeedback(createAuthFeedback(AUTH_FEEDBACK_STATUS.error, t.supabaseConnectionError));
+      return { ok: false };
+    }
+
+    setAuthFeedback(createAuthFeedback(AUTH_FEEDBACK_STATUS.submitting, t.sendingResetLink));
+    
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: getRedirectUrl('/password-reset.html')
+    });
+
+    if (error) {
+      const nextFeedback = resolveAuthErrorFeedback(error, t);
+      setAuthFeedback(nextFeedback);
+      showToast(nextFeedback.message);
+      return { ok: false, error };
+    }
+
+    setAuthFeedback(createAuthFeedback(AUTH_FEEDBACK_STATUS.success, t.resetLinkSent));
+    showToast(t.resetLinkSent);
+    return { ok: true };
+  };
+
+  const handleUpdatePassword = async (newPassword) => {
+    if (!supabaseEnabled || !supabase) {
+      showToast(t.supabaseConnectionError);
+      setAuthFeedback(createAuthFeedback(AUTH_FEEDBACK_STATUS.error, t.supabaseConnectionError));
+      return { ok: false };
+    }
+
+    setAuthFeedback(createAuthFeedback(AUTH_FEEDBACK_STATUS.submitting, t.updatingPassword));
+    
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword
+    });
+
+    if (error) {
+      const nextFeedback = resolveAuthErrorFeedback(error, t);
+      setAuthFeedback(nextFeedback);
+      showToast(nextFeedback.message);
+      return { ok: false, error };
+    }
+
+    setAuthFeedback(createAuthFeedback(AUTH_FEEDBACK_STATUS.success, t.passwordUpdated));
+    showToast(t.passwordUpdated);
+    return { ok: true };
+  };
+
   return {
     session,
     user: session?.user || null,
@@ -154,6 +215,8 @@ export function useSessionState(showToast, t) {
     authFeedback,
     clearAuthFeedback,
     handleLogOut,
-    handleLogIn
+    handleLogIn,
+    handleResetPassword,
+    handleUpdatePassword
   };
 }

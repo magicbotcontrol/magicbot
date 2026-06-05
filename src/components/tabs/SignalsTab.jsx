@@ -6,6 +6,7 @@ export function SignalsTab({
   t,
   botStatus,
   handleStartBot,
+  canStartBot,
   signalsText,
   setSignalsText,
   isSignalsReadOnly,
@@ -32,11 +33,12 @@ export function SignalsTab({
           </h2>
           <button
             onClick={handleStartBot}
+            disabled={!canStartBot}
             className={`w-full py-4 rounded-xl font-bold text-white uppercase tracking-wider flex items-center justify-center space-x-2 transition-all transform hover:scale-[1.01] ${
               botStatus === 'running'
                 ? 'bg-red-500 hover:bg-red-600 shadow-lg'
                 : 'bg-[#FF6B00] hover:bg-[#FF7F1F] shadow-lg shadow-[#FF6B00]/20'
-            }`}
+            } disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100`}
             style={botStatus !== 'running' ? { backgroundColor: colors.primary } : {}}
           >
             {botStatus === 'running' ? <Icons.Stop /> : <Icons.Play />}
@@ -71,7 +73,7 @@ export function SignalsTab({
             readOnly={Boolean(isSignalsReadOnly)}
           />
           <div className="flex space-x-3 mt-4">
-            <button onClick={handleSaveSignals} disabled={isSignalsSaving} className="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-60 text-gray-800 dark:text-white font-medium py-2 rounded-lg text-xs flex items-center justify-center transition-colors">
+            <button onClick={handleSaveSignals} disabled={isSignalsSaving || Boolean(isSignalsReadOnly)} className="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-60 text-gray-800 dark:text-white font-medium py-2 rounded-lg text-xs flex items-center justify-center transition-colors">
               <Icons.Save /> {t.save}
             </button>
             <button onClick={handleClearSignals} className="flex-1 bg-red-50 dark:bg-red-950/20 hover:bg-red-100 text-red-600 dark:text-red-400 font-medium py-2 rounded-lg text-xs flex items-center justify-center transition-colors">

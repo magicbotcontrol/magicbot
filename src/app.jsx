@@ -1,10 +1,13 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { MobileNavItem } from './components/MobileNavItem';
 import { BrokerLinkModal } from './components/modals/BrokerLinkModal';
 import { PixModal } from './components/modals/PixModal';
 import { AppHeader } from './components/layout/AppHeader';
 import { AppSidebar } from './components/layout/AppSidebar';
+import { ConfirmEmailScreen } from './components/layout/ConfirmEmailScreen';
+import { ForgotPasswordScreen } from './components/layout/ForgotPasswordScreen';
 import { LoginScreen } from './components/layout/LoginScreen';
+import { ResetPasswordScreen } from './components/layout/ResetPasswordScreen';
 import { ToastNotification } from './components/layout/ToastNotification';
 import { AccountTab } from './components/tabs/AccountTab';
 import { AdminTab } from './components/tabs/AdminTab';
@@ -38,6 +41,7 @@ import { getBrokerExternalUrl } from './utils/brokerNavigation';
 export default function App() {
   const ui = useUiState();
   const session = useSessionState(ui.showToast, ui.t);
+  const [authView, setAuthView] = useState('login');
   const admin = useAdminState(session.isAdmin, ui.showToast, ui.t);
   const affiliates = useAffiliatesState(session.isLoggedIn, ui.showToast, ui.t);
   const workspace = useSupabaseWorkspace(session.isLoggedIn, ui.showToast, ui.t);
@@ -69,6 +73,46 @@ export default function App() {
       ui.setActiveTab('signals');
     }
   }, [isSignalsOnly, ui.activeTab, ui.setActiveTab]);
+
+  useEffect(() => {
+    const routeView = new URLSearchParams(window.location.search).get('authView');
+    if (routeView === 'forgot-password' || routeView === 'reset-password' || routeView === 'confirm-email') {
+      setAuthView(routeView);
+      return;
+    }
+
+    const path = window.location.pathname.toLowerCase();
+
+    if (path.endsWith('/forgot-password.html')) {
+      setAuthView('forgot-password');
+      return;
+    }
+
+    if (path.endsWith('/password-reset.html')) {
+      setAuthView('reset-password');
+      return;
+    }
+
+    if (path.endsWith('/confirm-email.html')) {
+      setAuthView('confirm-email');
+      return;
+    }
+
+    setAuthView('login');
+  }, []);
+
+  const navigateToAuthView = (nextView) => {
+    const authRoutes = {
+      login: '/',
+      'forgot-password': '/forgot-password.html',
+      'reset-password': '/password-reset.html',
+      'confirm-email': '/confirm-email.html'
+    };
+
+    const nextPath = authRoutes[nextView] || '/';
+    window.history.replaceState({}, '', nextPath);
+    setAuthView(nextView);
+  };
 
   const handleCopyText = (text, label) => {
     const dummy = document.createElement('textarea');
@@ -133,6 +177,7 @@ export default function App() {
             t={ui.t}
             botStatus={signals.botStatus}
             handleStartBot={signals.handleStartBot}
+            canStartBot={signals.canStartBot}
             signalsText={signals.signalsText}
             setSignalsText={signals.setSignalsText}
             isSignalsReadOnly={signals.isSignalsReadOnly}
@@ -234,14 +279,24 @@ export default function App() {
             selectedWorkspaceId={admin.selectedWorkspaceId}
             workspaceDetails={admin.workspaceDetails}
             selectedWaiverUser={admin.selectedWaiverUser}
+            signalsFeedDate={admin.signalsFeedDate}
+            signalsFeedText={admin.signalsFeedText}
             isAdminLoading={admin.isAdminLoading}
             isWorkspaceDetailsLoading={admin.isWorkspaceDetailsLoading}
             isGrantingWaiver={admin.isGrantingWaiver}
+            isSignalsFeedLoading={admin.isSignalsFeedLoading}
+            isSignalsFeedSaving={admin.isSignalsFeedSaving}
+            isGrantingSignalsAccess={admin.isGrantingSignalsAccess}
             openWorkspaceDetails={admin.openWorkspaceDetails}
             closeWorkspaceDetails={admin.closeWorkspaceDetails}
             openWaiverModal={admin.openWaiverModal}
             closeWaiverModal={admin.closeWaiverModal}
             confirmMonthlyWaiver={admin.confirmMonthlyWaiver}
+            setSignalsFeedDate={admin.setSignalsFeedDate}
+            setSignalsFeedText={admin.setSignalsFeedText}
+            saveSignalsFeed={admin.saveSignalsFeed}
+            grantSignalsAccess={admin.grantSignalsAccess}
+            revokeSignalsAccess={admin.revokeSignalsAccess}
           />
         );
       case 'settings':
@@ -267,7 +322,9 @@ export default function App() {
     }
   };
 
-  if (session.isAuthLoading || (session.isLoggedIn && (workspace.isWorkspaceLoading || license.isLicenseLoading))) {
+  const isAuthFlowView = authView === 'forgot-password' || authView === 'reset-password' || authView === 'confirm-email';
+
+  if (session.isAuthLoading || (!isAuthFlowView && session.isLoggedIn && (workspace.isWorkspaceLoading || license.isLicenseLoading))) {
     return (
       <>
         <ToastNotification toastMessage={ui.toastMessage} />
@@ -278,7 +335,51 @@ export default function App() {
     );
   }
 
+  if (authView === 'reset-password') {
+    return (
+      <>
+        <ToastNotification toastMessage={ui.toastMessage} />
+        <ResetPasswordScreen
+          handleUpdatePassword={session.handleUpdatePassword}
+          t={ui.t}
+          isAuthLoading={session.isAuthLoading}
+          authFeedback={session.authFeedback}
+          clearAuthFeedback={session.clearAuthFeedback}
+          onBackToLogin={() => navigateToAuthView('login')}
+        />
+      </>
+    );
+  }
+
+  if (authView === 'confirm-email') {
+    return (
+      <>
+        <ToastNotification toastMessage={ui.toastMessage} />
+        <ConfirmEmailScreen
+          onBackToLogin={() => navigateToAuthView('login')}
+          onGoToForgotPassword={() => navigateToAuthView('forgot-password')}
+        />
+      </>
+    );
+  }
+
   if (!session.isLoggedIn) {
+    if (authView === 'forgot-password') {
+      return (
+        <>
+          <ToastNotification toastMessage={ui.toastMessage} />
+          <ForgotPasswordScreen
+            handleResetPassword={session.handleResetPassword}
+            t={ui.t}
+            isAuthLoading={session.isAuthLoading}
+            authFeedback={session.authFeedback}
+            clearAuthFeedback={session.clearAuthFeedback}
+            onBackToLogin={() => navigateToAuthView('login')}
+          />
+        </>
+      );
+    }
+
     return (
       <>
         <ToastNotification toastMessage={ui.toastMessage} />
@@ -289,6 +390,7 @@ export default function App() {
           isAuthSubmitting={session.isAuthSubmitting}
           authFeedback={session.authFeedback}
           clearAuthFeedback={session.clearAuthFeedback}
+          onForgotPassword={() => navigateToAuthView('forgot-password')}
         />
       </>
     );

@@ -63,14 +63,24 @@ export function AdminTab({
   selectedWorkspaceId,
   workspaceDetails,
   selectedWaiverUser,
+  signalsFeedDate,
+  signalsFeedText,
   isAdminLoading,
   isWorkspaceDetailsLoading,
   isGrantingWaiver,
+  isSignalsFeedLoading,
+  isSignalsFeedSaving,
+  isGrantingSignalsAccess,
   openWorkspaceDetails,
   closeWorkspaceDetails,
   openWaiverModal,
   closeWaiverModal,
-  confirmMonthlyWaiver
+  confirmMonthlyWaiver,
+  setSignalsFeedDate,
+  setSignalsFeedText,
+  saveSignalsFeed,
+  grantSignalsAccess,
+  revokeSignalsAccess
 }) {
   return (
     <div className="space-y-6 animate-fade-in">
@@ -104,6 +114,43 @@ export function AdminTab({
           <p className="mt-2 text-2xl font-black text-gray-900 dark:text-white">{summary.workspacesCount}</p>
         </div>
       </div>
+
+      <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h3 className="text-base font-bold text-gray-900 dark:text-white">Publicar Lista Diária</h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Cadastre somente as linhas padronizadas `M5;ATIVO;HH:MM;CALL/PUT` para liberar o produto avulso.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <input
+              type="date"
+              value={signalsFeedDate}
+              onChange={(event) => setSignalsFeedDate(event.target.value)}
+              className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#FF6B00] dark:border-[#334155] dark:bg-[#0B1220] dark:text-white"
+            />
+            <button
+              type="button"
+              onClick={saveSignalsFeed}
+              disabled={Boolean(isSignalsFeedSaving)}
+              className="rounded-xl bg-[#FFF7F0] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-[#B45309] transition-colors hover:bg-[#FFE6D2] disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#3A1E12] dark:text-[#FDBA74] dark:hover:bg-[#4A2514]"
+            >
+              {isSignalsFeedSaving ? 'Salvando...' : 'Publicar'}
+            </button>
+          </div>
+        </div>
+
+        <textarea
+          value={signalsFeedText}
+          onChange={(event) => setSignalsFeedText(event.target.value)}
+          placeholder="M5;EURGBP-OTC;09:45;CALL"
+          className="mt-4 min-h-[220px] w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 font-mono text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#FF6B00] dark:border-[#334155] dark:bg-[#0B1220] dark:text-white"
+        />
+        <div className="mt-3 text-xs font-semibold text-gray-400 dark:text-[#94A3B8]">
+          {isSignalsFeedLoading ? 'Carregando lista do dia...' : `${signalsFeedText.split('\n').filter((line) => line.trim()).length} linhas prontas para publicação.`}
+        </div>
+      </section>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
@@ -330,6 +377,9 @@ export function AdminTab({
         details={workspaceDetails}
         isLoading={isWorkspaceDetailsLoading}
         t={t}
+        grantSignalsAccess={grantSignalsAccess}
+        revokeSignalsAccess={revokeSignalsAccess}
+        isGrantingSignalsAccess={isGrantingSignalsAccess}
       />
 
       <AdminGrantWaiverModal

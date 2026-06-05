@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { getAdminOverview, getAdminWorkspaceDetails } from '../services/supabaseAdmin';
+import { getAdminDailySignalFeed, saveAdminDailySignalFeed } from '../services/supabaseAdminSignals';
+import { adminGrantSignalsEntitlement, adminRevokeSignalsEntitlement } from '../services/supabaseEntitlements';
 import { grantUserMonthlyWaiver } from '../services/supabaseLicense';
 
 const EMPTY_OVERVIEW = {
@@ -73,9 +75,18 @@ export function useAdminState(isAdmin, showToast, t) {
   const [isWorkspaceDetailsLoading, setIsWorkspaceDetailsLoading] = useState(false);
   const [selectedWaiverUser, setSelectedWaiverUser] = useState(null);
   const [isGrantingWaiver, setIsGrantingWaiver] = useState(false);
+  const [signalsFeedDate, setSignalsFeedDate] = useState(new Date().toLocaleDateString('en-CA'));
+  const [signalsFeedText, setSignalsFeedText] = useState('');
+  const [isSignalsFeedLoading, setIsSignalsFeedLoading] = useState(false);
+  const [isSignalsFeedSaving, setIsSignalsFeedSaving] = useState(false);
+  const [isGrantingSignalsAccess, setIsGrantingSignalsAccess] = useState(false);
 
   const loadOverview = async () => {
     return getAdminOverview();
+  };
+
+  const loadWorkspaceDetails = async (workspaceId) => {
+    return getAdminWorkspaceDetails(workspaceId);
   };
 
   useEffect(() => {
@@ -116,6 +127,37 @@ export function useAdminState(isAdmin, showToast, t) {
   useEffect(() => {
     let mounted = true;
 
+    if (!isAdmin) {
+      setSignalsFeedText('');
+      setIsSignalsFeedLoading(false);
+      return undefined;
+    }
+
+    setIsSignalsFeedLoading(true);
+
+    getAdminDailySignalFeed(signalsFeedDate)
+      .then((data) => {
+        if (!mounted) return;
+        setSignalsFeedText(data.rawText || '');
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setSignalsFeedText('');
+        showToastRef.current(errorMessageRef.current);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setIsSignalsFeedLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [isAdmin, signalsFeedDate]);
+
+  useEffect(() => {
+    let mounted = true;
+
     if (!isAdmin || !selectedWorkspaceId) {
       setWorkspaceDetails(null);
       setIsWorkspaceDetailsLoading(false);
@@ -124,7 +166,7 @@ export function useAdminState(isAdmin, showToast, t) {
 
     setIsWorkspaceDetailsLoading(true);
 
-    getAdminWorkspaceDetails(selectedWorkspaceId)
+    loadWorkspaceDetails(selectedWorkspaceId)
       .then((data) => {
         if (!mounted) return;
         setWorkspaceDetails(data);
@@ -199,7 +241,7 @@ export function useAdminState(isAdmin, showToast, t) {
       setOverview(nextOverview);
 
       if (selectedWorkspaceId === result.workspace_id) {
-        const details = await getAdminWorkspaceDetails(result.workspace_id);
+        const details = await loadWorkspaceDetails(result.workspace_id);
         setWorkspaceDetails(details);
       }
 
@@ -211,6 +253,62 @@ export function useAdminState(isAdmin, showToast, t) {
       return false;
     } finally {
       setIsGrantingWaiver(false);
+    }
+  };
+
+  const saveSignalsFeed = async () => {
+    setIsSignalsFeedSaving(true);
+    try {
+      await saveAdminDailySignalFeed(signalsFeedDate, signalsFeedText, 'Publicado pelo painel admin');
+      showToastRef.current('Lista diária publicada com sucesso.');
+      return true;
+    } catch (error) {
+      showToastRef.current(error?.message || t.supabaseSaveError);
+      return false;
+    } finally {
+      setIsSignalsFeedSaving(false);
+    }
+  };
+
+  const grantSignalsAccess = async (days) => {
+    if (!selectedWorkspaceId) return false;
+    setIsGrantingSignalsAccess(true);
+    try {
+      await adminGrantSignalsEntitlement(selectedWorkspaceId, days, `Liberado via admin por ${days} dias`);
+      const [nextOverview, details] = await Promise.all([
+        loadOverview(),
+        loadWorkspaceDetails(selectedWorkspaceId)
+      ]);
+      setOverview(nextOverview);
+      setWorkspaceDetails(details);
+      showToastRef.current(`Acesso ao produto Lista de Sinais liberado por ${days} dias.`);
+      return true;
+    } catch {
+      showToastRef.current(t.supabaseSaveError);
+      return false;
+    } finally {
+      setIsGrantingSignalsAccess(false);
+    }
+  };
+
+  const revokeSignalsAccess = async () => {
+    if (!selectedWorkspaceId) return false;
+    setIsGrantingSignalsAccess(true);
+    try {
+      await adminRevokeSignalsEntitlement(selectedWorkspaceId, 'Revogado via painel admin');
+      const [nextOverview, details] = await Promise.all([
+        loadOverview(),
+        loadWorkspaceDetails(selectedWorkspaceId)
+      ]);
+      setOverview(nextOverview);
+      setWorkspaceDetails(details);
+      showToastRef.current('Acesso ao produto Lista de Sinais revogado.');
+      return true;
+    } catch {
+      showToastRef.current(t.supabaseSaveError);
+      return false;
+    } finally {
+      setIsGrantingSignalsAccess(false);
     }
   };
 
@@ -233,13 +331,23 @@ export function useAdminState(isAdmin, showToast, t) {
     selectedWorkspaceId,
     workspaceDetails,
     selectedWaiverUser,
+    signalsFeedDate,
+    signalsFeedText,
     isAdminLoading,
     isWorkspaceDetailsLoading,
     isGrantingWaiver,
+    isSignalsFeedLoading,
+    isSignalsFeedSaving,
+    isGrantingSignalsAccess,
     openWorkspaceDetails,
     closeWorkspaceDetails,
     openWaiverModal,
     closeWaiverModal,
-    confirmMonthlyWaiver
+    confirmMonthlyWaiver,
+    setSignalsFeedDate,
+    setSignalsFeedText,
+    saveSignalsFeed,
+    grantSignalsAccess,
+    revokeSignalsAccess
   };
 }

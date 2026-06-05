@@ -25,6 +25,10 @@ export function ShopTab({ shopCycle, setShopCycle, buyDaysSimulate, t, formatMon
 
   const starterFeatures = [t.allFeatures, t.shopAllModes, t.shopAllBrokers, t.shopStarterExtra];
   const proFeatures = [t.allFeatures, t.shopAllModes, t.shopAllBrokers, t.shopProExtra];
+  const signalsListProduct = {
+    monthly: 100,
+    quarterly: 240
+  };
 
   const renderFeatures = (items) => (
     <ul className="mt-6 space-y-3 border-t border-gray-100 dark:border-[#334155] pt-5">
@@ -177,6 +181,45 @@ export function ShopTab({ shopCycle, setShopCycle, buyDaysSimulate, t, formatMon
           </div>
         </div>
       </div>
+
+      <section className="rounded-[28px] border border-dashed border-[#FF6B00] bg-white p-7 shadow-sm dark:border-[#FF8A3D] dark:bg-[#1E293B]">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <span className="inline-flex items-center rounded-full bg-orange-50 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#FF6B00] dark:bg-orange-950/30 dark:text-[#FF8A3D]">
+              Produto Avulso
+            </span>
+            <h3 className="mt-3 text-2xl font-black text-gray-900 dark:text-white">Lista de Sinais</h3>
+            <p className="mt-2 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
+              Produto separado da plataforma principal. Libera somente a aba `Lista Sinais`, ideal para quem quer receber a lista diária sem automação completa.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-xs font-semibold text-gray-500 dark:border-[#334155] dark:bg-[#0B1220] dark:text-[#94A3B8]">
+            Ativação nesta fase: pelo admin
+          </div>
+        </div>
+
+        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-[#334155] dark:bg-[#0B1220]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">Mensal</p>
+            <p className="mt-2 text-3xl font-black text-gray-900 dark:text-white">{formatMoney(signalsListProduct.monthly, 'BRL')}</p>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Acesso exclusivo ao produto Lista de Sinais por 30 dias.</p>
+          </div>
+          <div className="rounded-2xl border border-green-200 bg-green-50 p-5 dark:border-green-900/40 dark:bg-green-950/10">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-green-700 dark:text-green-300">Trimestral</p>
+            <p className="mt-2 text-3xl font-black text-gray-900 dark:text-white">{formatMoney(signalsListProduct.quarterly, 'BRL')}</p>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Equivalente a 3 meses com 20% de desconto sobre o valor mensal.</p>
+          </div>
+        </div>
+
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button onClick={() => buyDaysSimulate('Signals List Monthly', signalsListProduct.monthly)} className="rounded-2xl bg-[#FF6B00] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#FF7F1F]">
+            Solicitar mensal
+          </button>
+          <button onClick={() => buyDaysSimulate('Signals List Quarterly', signalsListProduct.quarterly)} className="rounded-2xl bg-gray-100 px-5 py-3 text-sm font-bold text-gray-800 transition-colors hover:bg-gray-200 dark:bg-[#0B1220] dark:text-white dark:hover:bg-[#111827]">
+            Solicitar trimestral
+          </button>
+        </div>
+      </section>
     </div>
   );
 }
