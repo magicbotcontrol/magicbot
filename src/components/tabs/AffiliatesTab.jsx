@@ -55,7 +55,10 @@ function AffiliateLevelList({ items, emptyLabel, title, accentClass, t }) {
 
 export function AffiliatesTab({ handleCopyText, t, referralCode, summary, network, isLoading }) {
   const resolvedReferralCode = referralCode || 'comunidade_rm';
-  const referralLink = `https://magicbot.app/?ref=${encodeURIComponent(resolvedReferralCode)}`;
+  const configuredUrl = import.meta.env.VITE_APP_URL?.trim();
+  const fallbackUrl = typeof window !== 'undefined' ? window.location.origin : '';
+  const baseUrl = (configuredUrl || fallbackUrl).replace(/\/$/, '');
+  const referralLink = `${baseUrl}/?ref=${encodeURIComponent(resolvedReferralCode)}`;
   const safeSummary = summary || {};
   const safeNetwork = network || { level1: [], level2: [] };
 
