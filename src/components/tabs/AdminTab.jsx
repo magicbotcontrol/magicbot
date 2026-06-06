@@ -64,6 +64,10 @@ export function AdminTab({
   workspaceDetails,
   selectedWaiverUser,
   signalsFeedDate,
+  signalsFeedMarket,
+  signalsFeedAssets,
+  signalsFeedAsset,
+  signalsFeedAssetInput,
   signalsFeedText,
   isAdminLoading,
   isWorkspaceDetailsLoading,
@@ -77,6 +81,9 @@ export function AdminTab({
   closeWaiverModal,
   confirmMonthlyWaiver,
   setSignalsFeedDate,
+  setSignalsFeedMarket,
+  setSignalsFeedAsset,
+  setSignalsFeedAssetInput,
   setSignalsFeedText,
   saveSignalsFeed,
   grantDailyListAccess,
@@ -124,15 +131,44 @@ export function AdminTab({
           <div>
             <h3 className="text-base font-bold text-gray-900 dark:text-white">Publicar Lista Diária</h3>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Cadastre somente as linhas padronizadas `M5;ATIVO;HH:MM;CALL/PUT` para liberar o conteúdo Sinais Diários Premium.
+              Cadastre listas separadas por sala (OB, Forex ou Cripto) e por ativo. Formato: `M5;ATIVO;HH:MM;CALL/PUT`.
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <select
+              value={signalsFeedMarket}
+              onChange={(event) => setSignalsFeedMarket(event.target.value)}
+              className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#FF6B00] dark:border-[#334155] dark:bg-[#0B1220] dark:text-white"
+            >
+              <option value="ob">{t.live}</option>
+              <option value="forex">{t.strategies}</option>
+              <option value="crypto">{t.ai}</option>
+            </select>
             <input
               type="date"
               value={signalsFeedDate}
               onChange={(event) => setSignalsFeedDate(event.target.value)}
               className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#FF6B00] dark:border-[#334155] dark:bg-[#0B1220] dark:text-white"
+            />
+            <select
+              value={signalsFeedAsset}
+              onChange={(event) => {
+                setSignalsFeedAsset(event.target.value);
+                setSignalsFeedAssetInput(event.target.value);
+              }}
+              className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#FF6B00] dark:border-[#334155] dark:bg-[#0B1220] dark:text-white"
+            >
+              {(signalsFeedAssets || []).length ? (signalsFeedAssets || []).map((feed) => (
+                <option key={feed.id} value={feed.asset}>{feed.asset}</option>
+              )) : (
+                <option value="">-</option>
+              )}
+            </select>
+            <input
+              value={signalsFeedAssetInput}
+              onChange={(event) => setSignalsFeedAssetInput(event.target.value.toUpperCase())}
+              placeholder="Ativo (ex: GBPUSD)"
+              className="w-[170px] rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#FF6B00] dark:border-[#334155] dark:bg-[#0B1220] dark:text-white"
             />
             <button
               type="button"
@@ -152,7 +188,7 @@ export function AdminTab({
           className="mt-4 min-h-[220px] w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 font-mono text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#FF6B00] dark:border-[#334155] dark:bg-[#0B1220] dark:text-white"
         />
         <div className="mt-3 text-xs font-semibold text-gray-400 dark:text-[#94A3B8]">
-          {isSignalsFeedLoading ? 'Carregando lista do dia...' : `${signalsFeedText.split('\n').filter((line) => line.trim()).length} linhas prontas para publicação.`}
+          {isSignalsFeedLoading ? 'Carregando...' : `${signalsFeedText.split('\n').filter((line) => line.trim()).length} linhas prontas para publicação.`}
         </div>
       </section>
 

@@ -104,15 +104,47 @@ export function useSessionState(showToast, t) {
 
     if (mode === 'signup') {
       setAuthFeedback(createAuthFeedback(AUTH_FEEDBACK_STATUS.submitting, t.authSigningUp));
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: getRedirectUrl('/confirm-email.html'),
-          data: {
-            referral_code: referralCode || null
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: getRedirectUrl('/confirm-email.html'),
+            data: {
+              referral_code: referralCode || null
+            }
           }
+        });
+
+        if (error) {
+          const nextFeedback = resolveAuthErrorFeedback(error, t);
+          setAuthFeedback(nextFeedback);
+          showToast(nextFeedback.message);
+          return { ok: false, error };
         }
+
+        if (data.session) {
+          setAuthFeedback(createAuthFeedback(AUTH_FEEDBACK_STATUS.success, t.welcomeBack));
+          showToast(t.welcomeBack);
+        } else {
+          setAuthFeedback(createAuthFeedback(AUTH_FEEDBACK_STATUS.success, t.accountCreatedCheckEmail));
+          showToast(t.accountCreatedCheckEmail);
+        }
+
+        return { ok: true };
+      } catch (error) {
+        const nextFeedback = resolveAuthErrorFeedback(error, t);
+        setAuthFeedback(nextFeedback);
+        showToast(nextFeedback.message);
+        return { ok: false, error };
+      }
+    }
+
+    setAuthFeedback(createAuthFeedback(AUTH_FEEDBACK_STATUS.submitting, t.authSigningIn));
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
       });
 
       if (error) {
@@ -122,33 +154,15 @@ export function useSessionState(showToast, t) {
         return { ok: false, error };
       }
 
-      if (data.session) {
-        setAuthFeedback(createAuthFeedback(AUTH_FEEDBACK_STATUS.success, t.welcomeBack));
-        showToast(t.welcomeBack);
-      } else {
-        setAuthFeedback(createAuthFeedback(AUTH_FEEDBACK_STATUS.success, t.accountCreatedCheckEmail));
-        showToast(t.accountCreatedCheckEmail);
-      }
-
+      setAuthFeedback(createAuthFeedback(AUTH_FEEDBACK_STATUS.success, t.welcomeBack));
+      showToast(t.welcomeBack);
       return { ok: true };
-    }
-
-    setAuthFeedback(createAuthFeedback(AUTH_FEEDBACK_STATUS.submitting, t.authSigningIn));
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-
-    if (error) {
+    } catch (error) {
       const nextFeedback = resolveAuthErrorFeedback(error, t);
       setAuthFeedback(nextFeedback);
       showToast(nextFeedback.message);
       return { ok: false, error };
     }
-
-    setAuthFeedback(createAuthFeedback(AUTH_FEEDBACK_STATUS.success, t.welcomeBack));
-    showToast(t.welcomeBack);
-    return { ok: true };
   };
 
   const handleResetPassword = async (email) => {
@@ -160,20 +174,27 @@ export function useSessionState(showToast, t) {
 
     setAuthFeedback(createAuthFeedback(AUTH_FEEDBACK_STATUS.submitting, t.sendingResetLink));
     
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: getRedirectUrl('/password-reset.html')
-    });
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: getRedirectUrl('/password-reset.html')
+      });
 
-    if (error) {
+      if (error) {
+        const nextFeedback = resolveAuthErrorFeedback(error, t);
+        setAuthFeedback(nextFeedback);
+        showToast(nextFeedback.message);
+        return { ok: false, error };
+      }
+
+      setAuthFeedback(createAuthFeedback(AUTH_FEEDBACK_STATUS.success, t.resetLinkSent));
+      showToast(t.resetLinkSent);
+      return { ok: true };
+    } catch (error) {
       const nextFeedback = resolveAuthErrorFeedback(error, t);
       setAuthFeedback(nextFeedback);
       showToast(nextFeedback.message);
       return { ok: false, error };
     }
-
-    setAuthFeedback(createAuthFeedback(AUTH_FEEDBACK_STATUS.success, t.resetLinkSent));
-    showToast(t.resetLinkSent);
-    return { ok: true };
   };
 
   const handleUpdatePassword = async (newPassword) => {
@@ -185,20 +206,52 @@ export function useSessionState(showToast, t) {
 
     setAuthFeedback(createAuthFeedback(AUTH_FEEDBACK_STATUS.submitting, t.updatingPassword));
     
-    const { error } = await supabase.auth.updateUser({
-      password: newPassword
-    });
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
 
-    if (error) {
+      if (error) {
+        const nextFeedback = resolveAuthErrorFeedback(error, t);
+        setAuthFeedback(nextFeedback);
+        showToast(nextFeedback.message);
+        return { ok: false, error };
+      }
+
+      setAuthFeedback(createAuthFeedback(AUTH_FEEDBACK_STATUS.success, t.passwordUpdated));
+      showToast(t.passwordUpdated);
+      return { ok: true };
+    } catch (error) {
       const nextFeedback = resolveAuthErrorFeedback(error, t);
       setAuthFeedback(nextFeedback);
       showToast(nextFeedback.message);
       return { ok: false, error };
     }
+  };
 
-    setAuthFeedback(createAuthFeedback(AUTH_FEEDBACK_STATUS.success, t.passwordUpdated));
-    showToast(t.passwordUpdated);
-    return { ok: true };
+  const validateReferralCode = async (rawCode) => {
+    if (!supabaseEnabled || !supabase) {
+      return { ok: false, valid: true };
+    }
+
+    const normalized = (rawCode || '').trim().toUpperCase();
+    if (!normalized || !normalized.startsWith('MAGIC-')) {
+      return { ok: true, valid: true, normalized };
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('validate_referral_code', {
+        p_referral_code: normalized
+      });
+
+      if (error) {
+        return { ok: false, valid: true, normalized, error };
+      }
+
+      return { ok: true, valid: Boolean(data), normalized };
+    } catch (error) {
+      return { ok: false, valid: true, normalized, error };
+    }
   };
 
   return {
@@ -217,6 +270,7 @@ export function useSessionState(showToast, t) {
     handleLogOut,
     handleLogIn,
     handleResetPassword,
-    handleUpdatePassword
+    handleUpdatePassword,
+    validateReferralCode
   };
 }

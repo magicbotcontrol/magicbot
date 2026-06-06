@@ -300,7 +300,7 @@ export function AdminWorkspaceDetailsModal({
                   <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-[#334155] dark:bg-[#0B1220]">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">Sinais Diários Premium</p>
+                        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">Sinais Diários OB</p>
                         <p className="mt-1 text-xs text-gray-500 dark:text-[#94A3B8]">
                           Status: <span className={`font-bold ${dailyEntitlementActive ? 'text-emerald-600' : 'text-gray-500 dark:text-[#94A3B8]'}`}>{dailyEntitlementLabel}</span>
                           {' '}• Expira em: {formatEntitlementDate(dailyEntitlement?.expires_at)}

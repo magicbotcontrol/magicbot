@@ -188,7 +188,7 @@ export function ShopTab({ shopCycle, setShopCycle, buyDaysSimulate, t, formatMon
             <span className="inline-flex items-center rounded-full bg-orange-50 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#FF6B00] dark:bg-orange-950/30 dark:text-[#FF8A3D]">
               Conteúdo Avulso
             </span>
-            <h3 className="mt-3 text-2xl font-black text-gray-900 dark:text-white">Sinais Diários Premium</h3>
+            <h3 className="mt-3 text-2xl font-black text-gray-900 dark:text-white">Sinais Diários OB</h3>
             <p className="mt-2 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
               Produto separado do AutoTrader (Lista). Libera o conteúdo diário publicado pelo admin dentro da aba AutoTrader (Lista), sem liberar automação.
             </p>

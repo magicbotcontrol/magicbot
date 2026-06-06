@@ -54,9 +54,8 @@ function AffiliateLevelList({ items, emptyLabel, title, accentClass, t }) {
 }
 
 export function AffiliatesTab({ handleCopyText, t, referralCode, summary, network, isLoading }) {
-  const referralLink = referralCode
-    ? `https://magicbot.app/ref=${referralCode}`
-    : 'https://magicbot.app/ref=comunidade_rm';
+  const resolvedReferralCode = referralCode || 'comunidade_rm';
+  const referralLink = `https://magicbot.app/?ref=${encodeURIComponent(resolvedReferralCode)}`;
   const safeSummary = summary || {};
   const safeNetwork = network || { level1: [], level2: [] };
 

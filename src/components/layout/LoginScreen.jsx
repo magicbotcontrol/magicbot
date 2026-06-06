@@ -1,8 +1,8 @@
 import { Icons } from '../../constants/icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AUTH_FEEDBACK_STATUS } from '../../utils/authFeedback';
 
-export function LoginScreen({ handleLogIn, t, isAuthLoading, isAuthSubmitting, authFeedback, clearAuthFeedback, onForgotPassword }) {
+export function LoginScreen({ handleLogIn, validateReferralCode, t, isAuthLoading, isAuthSubmitting, authFeedback, clearAuthFeedback, onForgotPassword }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [referralCode, setReferralCode] = useState('');
@@ -11,6 +11,34 @@ export function LoginScreen({ handleLogIn, t, isAuthLoading, isAuthSubmitting, a
   const [mode, setMode] = useState('signin');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationMessage, setValidationMessage] = useState('');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const url = new URL(window.location.href);
+    const rawFromQuery =
+      url.searchParams.get('ref') ||
+      url.searchParams.get('referral') ||
+      url.searchParams.get('referral_code') ||
+      '';
+
+    const rawFromPath = (() => {
+      const pathname = url.pathname || '';
+      const matchEquals = pathname.match(/\/ref=([^/]+)/i);
+      if (matchEquals?.[1]) return matchEquals[1];
+
+      const matchSlash = pathname.match(/\/ref\/([^/]+)/i);
+      if (matchSlash?.[1]) return matchSlash[1];
+
+      return '';
+    })();
+
+    const normalized = (rawFromQuery || rawFromPath).trim().toUpperCase();
+    if (!normalized) return;
+
+    setReferralCode(normalized);
+    setMode('signup');
+  }, []);
 
   const feedbackTone =
     authFeedback.status === AUTH_FEEDBACK_STATUS.success
@@ -41,12 +69,24 @@ export function LoginScreen({ handleLogIn, t, isAuthLoading, isAuthSubmitting, a
 
     setValidationMessage('');
     setIsSubmitting(true);
+    const normalizedReferralCode = referralCode.trim().toUpperCase();
+
     try {
+      if (nextMode === 'signup' && normalizedReferralCode && typeof validateReferralCode === 'function') {
+        const result = await validateReferralCode(normalizedReferralCode);
+        if (result?.ok && result?.valid === false) {
+          setReferralCode('');
+          setValidationMessage(t.referralCodeInvalid);
+          clearAuthFeedback();
+          return;
+        }
+      }
+
       await handleLogIn({
         email,
         password,
         mode: nextMode,
-        referralCode: referralCode.trim().toUpperCase()
+        referralCode: normalizedReferralCode
       });
     } finally {
       setIsSubmitting(false);

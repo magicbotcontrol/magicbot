@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { getAdminOverview, getAdminWorkspaceDetails } from '../services/supabaseAdmin';
-import { getAdminDailySignalFeed, saveAdminDailySignalFeed } from '../services/supabaseAdminSignals';
+import { getAdminDailySignalFeed, listAdminDailySignalFeeds, saveAdminDailySignalFeed } from '../services/supabaseAdminSignals';
 import {
   adminGrantAutomatorEntitlement,
   adminGrantSignalsBundleEntitlement,
@@ -83,6 +83,10 @@ export function useAdminState(isAdmin, showToast, t) {
   const [selectedWaiverUser, setSelectedWaiverUser] = useState(null);
   const [isGrantingWaiver, setIsGrantingWaiver] = useState(false);
   const [signalsFeedDate, setSignalsFeedDate] = useState(new Date().toLocaleDateString('en-CA'));
+  const [signalsFeedMarket, setSignalsFeedMarket] = useState('ob');
+  const [signalsFeedAssets, setSignalsFeedAssets] = useState([]);
+  const [signalsFeedAsset, setSignalsFeedAsset] = useState('');
+  const [signalsFeedAssetInput, setSignalsFeedAssetInput] = useState('');
   const [signalsFeedText, setSignalsFeedText] = useState('');
   const [isSignalsFeedLoading, setIsSignalsFeedLoading] = useState(false);
   const [isSignalsFeedSaving, setIsSignalsFeedSaving] = useState(false);
@@ -136,13 +140,49 @@ export function useAdminState(isAdmin, showToast, t) {
 
     if (!isAdmin) {
       setSignalsFeedText('');
+      setSignalsFeedAssets([]);
+      setSignalsFeedAsset('');
+      setSignalsFeedAssetInput('');
       setIsSignalsFeedLoading(false);
       return undefined;
     }
 
     setIsSignalsFeedLoading(true);
 
-    getAdminDailySignalFeed(signalsFeedDate)
+    listAdminDailySignalFeeds(signalsFeedDate, signalsFeedMarket)
+      .then((feeds) => {
+        if (!mounted) return;
+        const items = feeds || [];
+        setSignalsFeedAssets(items);
+        const nextAsset = items.find((item) => item.asset === signalsFeedAsset)?.asset || items[0]?.asset || '';
+        setSignalsFeedAsset(nextAsset);
+        setSignalsFeedAssetInput(nextAsset);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setSignalsFeedText('');
+        setSignalsFeedAssets([]);
+        setSignalsFeedAsset('');
+        setSignalsFeedAssetInput('');
+        showToastRef.current(errorMessageRef.current);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [isAdmin, signalsFeedDate, signalsFeedMarket]);
+
+  useEffect(() => {
+    let mounted = true;
+    if (!isAdmin || !signalsFeedAsset) {
+      setSignalsFeedText('');
+      setIsSignalsFeedLoading(false);
+      return undefined;
+    }
+
+    setIsSignalsFeedLoading(true);
+
+    getAdminDailySignalFeed(signalsFeedDate, signalsFeedMarket, signalsFeedAsset)
       .then((data) => {
         if (!mounted) return;
         setSignalsFeedText(data.rawText || '');
@@ -160,7 +200,7 @@ export function useAdminState(isAdmin, showToast, t) {
     return () => {
       mounted = false;
     };
-  }, [isAdmin, signalsFeedDate]);
+  }, [isAdmin, signalsFeedDate, signalsFeedMarket, signalsFeedAsset]);
 
   useEffect(() => {
     let mounted = true;
@@ -266,7 +306,14 @@ export function useAdminState(isAdmin, showToast, t) {
   const saveSignalsFeed = async () => {
     setIsSignalsFeedSaving(true);
     try {
-      await saveAdminDailySignalFeed(signalsFeedDate, signalsFeedText, 'Publicado pelo painel admin');
+      const assetValue = signalsFeedAssetInput || signalsFeedAsset;
+      await saveAdminDailySignalFeed(signalsFeedDate, signalsFeedMarket, assetValue, signalsFeedText, 'Publicado pelo painel admin');
+      const feeds = await listAdminDailySignalFeeds(signalsFeedDate, signalsFeedMarket);
+      setSignalsFeedAssets(feeds || []);
+      if (assetValue) {
+        setSignalsFeedAsset(String(assetValue).trim().toUpperCase());
+        setSignalsFeedAssetInput(String(assetValue).trim().toUpperCase());
+      }
       showToastRef.current('Lista diária publicada com sucesso.');
       return true;
     } catch (error) {
@@ -288,7 +335,7 @@ export function useAdminState(isAdmin, showToast, t) {
       ]);
       setOverview(nextOverview);
       setWorkspaceDetails(details);
-      showToastRef.current(`Acesso ao produto Sinais Diários Premium liberado por ${days} dias.`);
+      showToastRef.current(`Acesso ao produto Sinais Diários OB liberado por ${days} dias.`);
       return true;
     } catch {
       showToastRef.current(t.supabaseSaveError);
@@ -309,7 +356,7 @@ export function useAdminState(isAdmin, showToast, t) {
       ]);
       setOverview(nextOverview);
       setWorkspaceDetails(details);
-      showToastRef.current('Acesso ao produto Sinais Diários Premium revogado.');
+      showToastRef.current('Acesso ao produto Sinais Diários OB revogado.');
       return true;
     } catch {
       showToastRef.current(t.supabaseSaveError);
@@ -372,7 +419,7 @@ export function useAdminState(isAdmin, showToast, t) {
       ]);
       setOverview(nextOverview);
       setWorkspaceDetails(details);
-      showToastRef.current(`AutoTrader (Lista) + Sinais Diários Premium liberados por ${days} dias.`);
+      showToastRef.current(`AutoTrader (Lista) + Sinais Diários OB liberados por ${days} dias.`);
       return true;
     } catch {
       showToastRef.current(t.supabaseSaveError);
@@ -393,7 +440,7 @@ export function useAdminState(isAdmin, showToast, t) {
       ]);
       setOverview(nextOverview);
       setWorkspaceDetails(details);
-      showToastRef.current('AutoTrader (Lista) + Sinais Diários Premium revogados.');
+      showToastRef.current('AutoTrader (Lista) + Sinais Diários OB revogados.');
       return true;
     } catch {
       showToastRef.current(t.supabaseSaveError);
@@ -423,6 +470,10 @@ export function useAdminState(isAdmin, showToast, t) {
     workspaceDetails,
     selectedWaiverUser,
     signalsFeedDate,
+    signalsFeedMarket,
+    signalsFeedAssets,
+    signalsFeedAsset,
+    signalsFeedAssetInput,
     signalsFeedText,
     isAdminLoading,
     isWorkspaceDetailsLoading,
@@ -436,6 +487,10 @@ export function useAdminState(isAdmin, showToast, t) {
     closeWaiverModal,
     confirmMonthlyWaiver,
     setSignalsFeedDate,
+    setSignalsFeedMarket,
+    setSignalsFeedAssets,
+    setSignalsFeedAsset,
+    setSignalsFeedAssetInput,
     setSignalsFeedText,
     saveSignalsFeed,
     grantDailyListAccess,

@@ -57,7 +57,8 @@ export async function saveSignalList({ workspaceId, listDate, signalsText, parse
   assertSupabase();
 
   const totalCount = parsedSignals.length;
-  const validCount = parsedSignals.filter((signal) => signal.isValid).length;
+  const validSignals = parsedSignals.filter((signal) => signal.isValid && !signal.isIgnored);
+  const validCount = validSignals.length;
 
   const listResult = await supabase
     .from('signal_lists')
@@ -101,10 +102,10 @@ export async function saveSignalList({ workspaceId, listDate, signalsText, parse
   const { error: deleteLiveError } = await supabase.from('live_operations').delete().eq('signal_list_id', signalList.id);
   if (deleteLiveError) throw deleteLiveError;
 
-  const operationsPayload = buildLiveOperationsFromSignals(parsedSignals, entryValue).map((operation, index) => ({
+  const operationsPayload = buildLiveOperationsFromSignals(parsedSignals, entryValue).map((operation) => ({
     workspace_id: workspaceId,
     signal_list_id: signalList.id,
-    signal_item_id: signalItemMap.get(index + 1) || null,
+    signal_item_id: signalItemMap.get(operation.line_number) || null,
     ...operation
   }));
 

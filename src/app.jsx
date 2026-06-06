@@ -12,14 +12,12 @@ import { ToastNotification } from './components/layout/ToastNotification';
 import { AccountTab } from './components/tabs/AccountTab';
 import { AdminTab } from './components/tabs/AdminTab';
 import { AffiliatesTab } from './components/tabs/AffiliatesTab';
-import { AiTab } from './components/tabs/AiTab';
 import { CopyTab } from './components/tabs/CopyTab';
 import { DashboardTab } from './components/tabs/DashboardTab';
 import { DailySignalsTab } from './components/tabs/DailySignalsTab';
 import { SettingsTab } from './components/tabs/SettingsTab';
 import { ShopTab } from './components/tabs/ShopTab';
 import { SignalsTab } from './components/tabs/SignalsTab';
-import { StrategiesTab } from './components/tabs/StrategiesTab';
 import { PremiumBlockedTab } from './components/tabs/PremiumBlockedTab';
 import { Icons } from './constants/icons';
 import { globalStyles } from './constants/globalStyles';
@@ -33,7 +31,6 @@ import { useSessionState } from './hooks/useSessionState';
 import { useSettingsState } from './hooks/useSettingsState';
 import { useSignalsState } from './hooks/useSignalsState';
 import { useSupabaseWorkspace } from './hooks/useSupabaseWorkspace';
-import { useStrategyState } from './hooks/useStrategyState';
 import { useUiState } from './hooks/useUiState';
 import { playAlertSound } from './utils/audio';
 import { getBrokerExternalUrl } from './utils/brokerNavigation';
@@ -49,7 +46,6 @@ export default function App() {
   const license = useLicenseState(workspace.workspaceId, session.isLoggedIn, session.isAdmin, ui.showToast, playAlertSound, ui.t);
   const signalsEntitlement = useSignalsEntitlementState(workspace.workspaceId, session.isLoggedIn, ui.showToast, ui.t);
   const broker = useBrokerState(workspace.workspaceId, ui.showToast, playAlertSound, ui.t);
-  const strategy = useStrategyState(ui.showToast, ui.t);
   const settings = useSettingsState(workspace.workspaceId, ui.showToast, ui.t);
   const signals = useSignalsState({
     workspaceId: workspace.workspaceId,
@@ -177,9 +173,32 @@ export default function App() {
           <SignalsTab
             t={ui.t}
             botStatus={signals.botStatus}
+            botSlot={signals.botSlot}
+            setBotSlot={signals.setBotSlot}
+            isBotInstancesLoading={signals.isBotInstancesLoading}
+            botToleranceSeconds={signals.botToleranceSeconds}
+            setBotToleranceSeconds={signals.setBotToleranceSeconds}
+            isBotToleranceSaving={signals.isBotToleranceSaving}
+            botQueueSummary={signals.botQueueSummary}
+            botRecentEvents={signals.botRecentEvents}
+            isBotQueueLoading={signals.isBotQueueLoading}
+            botDayJobs={signals.botDayJobs}
+            isBotDayJobsLoading={signals.isBotDayJobsLoading}
+            isBotActionLoading={signals.isBotActionLoading}
+            handleRequeueFailedJobs={signals.handleRequeueFailedJobs}
+            handleClearExpiredJobs={signals.handleClearExpiredJobs}
             handleStartBot={signals.handleStartBot}
             canStartBot={signals.canStartBot}
             canEditSignals={signals.canEditSignals}
+            canUsePublished={signals.canUsePublished}
+            sourceMode={signals.sourceMode}
+            setSourceMode={signals.setSourceMode}
+            selectedMarket={signals.selectedMarket}
+            setSelectedMarket={signals.setSelectedMarket}
+            availableFeeds={signals.availableFeeds}
+            selectedAsset={signals.selectedAsset}
+            setSelectedAsset={signals.setSelectedAsset}
+            copyPublishedListToWorkspace={signals.copyPublishedListToWorkspace}
             signalsText={signals.signalsText}
             setSignalsText={signals.setSignalsText}
             isSignalsReadOnly={signals.isSignalsReadOnly}
@@ -192,6 +211,9 @@ export default function App() {
             handleExport={signals.handleExport}
             parsedSignals={signals.parsedSignals}
             validCount={signals.validCount}
+            ignoredCount={signals.ignoredCount}
+            isExclusionsSaving={signals.isExclusionsSaving}
+            toggleSignalIgnored={signals.toggleSignalIgnored}
             isSignalsLoading={signals.isSignalsLoading}
             isSignalsSaving={signals.isSignalsSaving}
             handleOpenInBroker={handleOpenSignalInBroker}
@@ -203,25 +225,30 @@ export default function App() {
             t={ui.t}
             showToast={ui.showToast}
             canViewDailyList={session.isAdmin || signalsEntitlement.isSignalsDailyListActive}
+            marketCode="ob"
+            title={ui.t.live}
           />
         );
       case 'strategies':
         return (
-          <StrategiesTab
-            newStratName={strategy.newStratName}
-            setNewStratName={strategy.setNewStratName}
-            newStratTf={strategy.newStratTf}
-            setNewStratTf={strategy.setNewStratTf}
-            selectedIndicators={strategy.selectedIndicators}
-            handleCheckboxIndicator={strategy.handleCheckboxIndicator}
-            handleCreateStrategy={strategy.handleCreateStrategy}
-            strategiesList={strategy.strategiesList}
-            removeStrategy={strategy.removeStrategy}
+          <DailySignalsTab
             t={ui.t}
+            showToast={ui.showToast}
+            canViewDailyList={session.isAdmin || signalsEntitlement.isSignalsDailyListActive}
+            marketCode="forex"
+            title={ui.t.strategies}
           />
         );
       case 'ai':
-        return <AiTab showToast={ui.showToast} t={ui.t} />;
+        return (
+          <DailySignalsTab
+            t={ui.t}
+            showToast={ui.showToast}
+            canViewDailyList={session.isAdmin || signalsEntitlement.isSignalsDailyListActive}
+            marketCode="crypto"
+            title={ui.t.ai}
+          />
+        );
       case 'copy':
         return <CopyTab showToast={ui.showToast} t={ui.t} formatMoney={ui.formatMoney} />;
       case 'affiliates':
@@ -278,6 +305,10 @@ export default function App() {
             workspaceDetails={admin.workspaceDetails}
             selectedWaiverUser={admin.selectedWaiverUser}
             signalsFeedDate={admin.signalsFeedDate}
+            signalsFeedMarket={admin.signalsFeedMarket}
+            signalsFeedAssets={admin.signalsFeedAssets}
+            signalsFeedAsset={admin.signalsFeedAsset}
+            signalsFeedAssetInput={admin.signalsFeedAssetInput}
             signalsFeedText={admin.signalsFeedText}
             isAdminLoading={admin.isAdminLoading}
             isWorkspaceDetailsLoading={admin.isWorkspaceDetailsLoading}
@@ -291,6 +322,9 @@ export default function App() {
             closeWaiverModal={admin.closeWaiverModal}
             confirmMonthlyWaiver={admin.confirmMonthlyWaiver}
             setSignalsFeedDate={admin.setSignalsFeedDate}
+            setSignalsFeedMarket={admin.setSignalsFeedMarket}
+            setSignalsFeedAsset={admin.setSignalsFeedAsset}
+            setSignalsFeedAssetInput={admin.setSignalsFeedAssetInput}
             setSignalsFeedText={admin.setSignalsFeedText}
             saveSignalsFeed={admin.saveSignalsFeed}
             grantDailyListAccess={admin.grantDailyListAccess}
@@ -387,6 +421,7 @@ export default function App() {
         <ToastNotification toastMessage={ui.toastMessage} />
         <LoginScreen
           handleLogIn={session.handleLogIn}
+          validateReferralCode={session.validateReferralCode}
           t={ui.t}
           isAuthLoading={session.isAuthLoading}
           isAuthSubmitting={session.isAuthSubmitting}

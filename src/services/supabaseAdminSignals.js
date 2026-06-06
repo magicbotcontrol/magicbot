@@ -6,7 +6,7 @@ function assertSupabase() {
   }
 }
 
-function parseSignalLines(rawText) {
+function parseSignalLines(rawText, expectedAsset) {
   return String(rawText || '')
     .split('\n')
     .map((line) => line.trim())
@@ -42,13 +42,30 @@ function parseSignalLines(rawText) {
     });
 }
 
-export async function getAdminDailySignalFeed(listDate) {
+export async function listAdminDailySignalFeeds(listDate, marketCode) {
+  assertSupabase();
+  if (!listDate || !marketCode) return [];
+
+  const { data, error } = await supabase
+    .from('daily_signal_feeds')
+    .select('id, list_date, market_code, asset, updated_at')
+    .eq('list_date', listDate)
+    .eq('market_code', marketCode)
+    .order('asset', { ascending: true });
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getAdminDailySignalFeed(listDate, marketCode, asset) {
   assertSupabase();
 
   const { data: feed, error: feedError } = await supabase
     .from('daily_signal_feeds')
     .select('*')
     .eq('list_date', listDate)
+    .eq('market_code', marketCode)
+    .eq('asset', asset)
     .maybeSingle();
 
   if (feedError) throw feedError;
@@ -75,16 +92,26 @@ export async function getAdminDailySignalFeed(listDate) {
   };
 }
 
-export async function saveAdminDailySignalFeed(listDate, rawText, note = '') {
+export async function saveAdminDailySignalFeed(listDate, marketCode, asset, rawText, note = '') {
   assertSupabase();
-  const items = parseSignalLines(rawText);
+  const normalizedAsset = String(asset || '').trim().toUpperCase();
+  if (!normalizedAsset) {
+    throw new Error('Informe o ativo (ex: GBPUSD).');
+  }
+  const items = parseSignalLines(rawText, normalizedAsset);
+  const invalidAssets = items.filter((item) => item.asset !== normalizedAsset);
+  if (invalidAssets.length) {
+    throw new Error(`Todas as linhas devem usar o ativo ${normalizedAsset}.`);
+  }
 
   const { data: feed, error: feedError } = await supabase
     .from('daily_signal_feeds')
     .upsert({
       list_date: listDate,
+      market_code: marketCode,
+      asset: normalizedAsset,
       note
-    }, { onConflict: 'list_date' })
+    }, { onConflict: 'list_date,market_code,asset' })
     .select()
     .single();
 
