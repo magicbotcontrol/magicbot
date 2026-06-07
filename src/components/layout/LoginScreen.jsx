@@ -6,6 +6,7 @@ export function LoginScreen({ handleLogIn, validateReferralCode, t, isAuthLoadin
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [referralCode, setReferralCode] = useState('');
+  const [promoCode, setPromoCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isCapsLockOn, setIsCapsLockOn] = useState(false);
   const [mode, setMode] = useState('signin');
@@ -21,6 +22,13 @@ export function LoginScreen({ handleLogIn, validateReferralCode, t, isAuthLoadin
       url.searchParams.get('referral') ||
       url.searchParams.get('referral_code') ||
       '';
+
+    const rawPromo = url.searchParams.get('promo') || url.searchParams.get('campaign') || '';
+    const normalizedPromo = rawPromo.trim().toUpperCase();
+    if (normalizedPromo) {
+      setPromoCode(normalizedPromo);
+      setMode('signup');
+    }
 
     const rawFromPath = (() => {
       const pathname = url.pathname || '';
@@ -86,7 +94,8 @@ export function LoginScreen({ handleLogIn, validateReferralCode, t, isAuthLoadin
         email,
         password,
         mode: nextMode,
-        referralCode: normalizedReferralCode
+        referralCode: normalizedReferralCode,
+        promoCode: promoCode.trim().toUpperCase()
       });
     } finally {
       setIsSubmitting(false);

@@ -2,6 +2,7 @@ import { ScrollableTableShell } from '../ScrollableTableShell';
 import { Icons } from '../../constants/icons';
 import { AdminWorkspaceDetailsModal } from '../modals/AdminWorkspaceDetailsModal';
 import { AdminGrantWaiverModal } from '../modals/AdminGrantWaiverModal';
+import { AdminCopyTradingCampaigns } from '../admin/AdminCopyTradingCampaigns';
 
 function formatDate(value) {
   if (!value) return '-';
@@ -14,6 +15,16 @@ function RuntimeBadge({ status }) {
     : 'bg-gray-100 text-gray-600 dark:bg-[#1E293B] dark:text-[#CBD5E1]';
 
   return <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${tone}`}>{status}</span>;
+}
+
+function TestAccountBadge({ isTestAccount, t }) {
+  if (!isTestAccount) return null;
+
+  return (
+    <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+      {t.adminTestBadge}
+    </span>
+  );
 }
 
 function PaginationBar({ label, currentPage, totalPages, onPrevious, onNext, totalItems, t }) {
@@ -45,6 +56,7 @@ function PaginationBar({ label, currentPage, totalPages, onPrevious, onNext, tot
 
 export function AdminTab({
   t,
+  showToast,
   summary,
   users,
   workspaces,
@@ -72,6 +84,7 @@ export function AdminTab({
   isAdminLoading,
   isWorkspaceDetailsLoading,
   isGrantingWaiver,
+  isUpdatingTestAccount,
   isSignalsFeedLoading,
   isSignalsFeedSaving,
   isGrantingSignalsAccess,
@@ -80,6 +93,7 @@ export function AdminTab({
   openWaiverModal,
   closeWaiverModal,
   confirmMonthlyWaiver,
+  toggleTestAccount,
   setSignalsFeedDate,
   setSignalsFeedMarket,
   setSignalsFeedAsset,
@@ -111,7 +125,7 @@ export function AdminTab({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
         <div className="bg-white dark:bg-[#1E293B] rounded-xl p-4 border border-gray-200 dark:border-[#334155] shadow-sm">
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">{t.adminUsers}</p>
           <p className="mt-2 text-2xl font-black text-gray-900 dark:text-white">{summary.usersCount}</p>
@@ -124,7 +138,17 @@ export function AdminTab({
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">{t.adminWorkspaces}</p>
           <p className="mt-2 text-2xl font-black text-gray-900 dark:text-white">{summary.workspacesCount}</p>
         </div>
+        <div className="bg-white dark:bg-[#1E293B] rounded-xl p-4 border border-gray-200 dark:border-[#334155] shadow-sm">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">{t.adminTestAccounts}</p>
+          <p className="mt-2 text-2xl font-black text-gray-900 dark:text-white">{summary.testAccountsCount || 0}</p>
+        </div>
+        <div className="bg-white dark:bg-[#1E293B] rounded-xl p-4 border border-gray-200 dark:border-[#334155] shadow-sm">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">{t.adminTestWorkspaces}</p>
+          <p className="mt-2 text-2xl font-black text-gray-900 dark:text-white">{summary.testWorkspacesCount || 0}</p>
+        </div>
       </div>
+
+      <AdminCopyTradingCampaigns t={t} showToast={showToast} />
 
       <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -225,7 +249,7 @@ export function AdminTab({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
           <label className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">{t.adminHealthRuntime}</label>
           <select
@@ -248,6 +272,18 @@ export function AdminTab({
             <option value="all">{t.adminBrokerFilterAll}</option>
             <option value="zero">{t.adminBrokerFilterZero}</option>
             <option value="linked">{t.adminBrokerFilterLinked}</option>
+          </select>
+        </div>
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
+          <label className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">{t.adminTestAccounts}</label>
+          <select
+            value={filters.testAccounts}
+            onChange={(event) => setFilter('testAccounts', event.target.value)}
+            className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#FF6B00] dark:border-[#334155] dark:bg-[#0B1220] dark:text-white"
+          >
+            <option value="all">{t.adminTestAccountsAll}</option>
+            <option value="test">{t.adminTestAccountsOnly}</option>
+            <option value="real">{t.adminRealAccountsOnly}</option>
           </select>
         </div>
       </div>
@@ -285,7 +321,12 @@ export function AdminTab({
             <tbody>
               {users.length ? users.map((user) => (
                 <tr key={user.id} className="border-t border-gray-100 dark:border-[#1F2A3A]">
-                  <td className="px-4 py-3 font-semibold text-gray-800 dark:text-gray-200">{user.email}</td>
+                  <td className="px-4 py-3 font-semibold text-gray-800 dark:text-gray-200">
+                    <div className="flex items-center gap-2">
+                      <span>{user.email}</span>
+                      <TestAccountBadge isTestAccount={user.isTestAccount} t={t} />
+                    </div>
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${user.role === 'admin' ? 'bg-[#FFF7F0] text-[#B45309] dark:bg-[#3A1E12] dark:text-[#FDBA74]' : 'bg-gray-100 text-gray-600 dark:bg-[#1E293B] dark:text-[#CBD5E1]'}`}>
                       {user.role === 'admin' ? t.adminRoleAdmin : t.adminRoleUser}
@@ -301,13 +342,23 @@ export function AdminTab({
                     {user.role === 'admin' ? (
                       <span className="text-xs font-semibold text-gray-400">{t.adminProtectedAccount}</span>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => openWaiverModal(user)}
-                        className="rounded-xl bg-[#FFF7F0] px-3 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-[#B45309] transition-colors hover:bg-[#FFE6D2] dark:bg-[#3A1E12] dark:text-[#FDBA74] dark:hover:bg-[#4A2514]"
-                      >
-                        {t.adminWaiverAction}
-                      </button>
+                      <div className="flex flex-col items-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleTestAccount(user.id, !user.isTestAccount)}
+                          disabled={isUpdatingTestAccount}
+                          className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-700 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-300 dark:hover:bg-amber-950/30"
+                        >
+                          {isUpdatingTestAccount ? t.adminUpdatingTestFlag : user.isTestAccount ? t.adminUnmarkAsTest : t.adminMarkAsTest}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openWaiverModal(user)}
+                          className="rounded-xl bg-[#FFF7F0] px-3 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-[#B45309] transition-colors hover:bg-[#FFE6D2] dark:bg-[#3A1E12] dark:text-[#FDBA74] dark:hover:bg-[#4A2514]"
+                        >
+                          {t.adminWaiverAction}
+                        </button>
+                      </div>
                     )}
                   </td>
                 </tr>
@@ -367,7 +418,12 @@ export function AdminTab({
                 <tr key={workspace.id} className={`border-t border-gray-100 dark:border-[#1F2A3A] ${workspace.hasZeroLinkedBrokers ? 'bg-red-50/40 dark:bg-red-950/10' : ''}`}>
                   <td className="px-4 py-3 font-semibold text-gray-800 dark:text-gray-200">{workspace.name}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-[#CBD5E1]">{workspace.slug}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-[#CBD5E1]">{workspace.ownerEmail}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-[#CBD5E1]">
+                    <div className="flex items-center gap-2">
+                      <span>{workspace.ownerEmail}</span>
+                      <TestAccountBadge isTestAccount={workspace.ownerIsTestAccount} t={t} />
+                    </div>
+                  </td>
                   <td className="px-4 py-3"><RuntimeBadge status={workspace.runtimeStatus} /></td>
                   <td className="px-4 py-3">
                     <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${workspace.hasZeroLinkedBrokers ? 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300'}`}>

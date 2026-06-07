@@ -68,6 +68,10 @@ export async function getWorkspaceBootstrap(workspaceId) {
   if (brokersResult.error) throw brokersResult.error;
   if (settingsResult.error) throw settingsResult.error;
 
+  // #region debug-point D:workspace-bootstrap
+  fetch("http://127.0.0.1:7777/event", { method: "POST", body: JSON.stringify({ sessionId: "broker-balance-signals", runId: "pre", hypothesisId: "D", location: "supabaseWorkspace.js:getWorkspaceBootstrap", msg: "[DEBUG] workspace bootstrap loaded", data: { workspaceId, runtime: runtimeResult.data?.bot_status || null, preferences: { selectedTimezone: preferencesResult.data?.selected_timezone || null }, brokers: (brokersResult.data || []).map((b) => ({ brokerKey: b.broker_key, status: b.status, balance: Number(b.balance || 0), accountType: b.account_type || null, baseCurrency: b.base_currency || null, hasEmail: Boolean(b.email) })), settingsKeys: Object.keys(settingsResult.data?.config || {}), settingsAccountType: (settingsResult.data?.config || {})?.accountType || null }, ts: Date.now() }) }).catch(() => {});
+  // #endregion
+
   return {
     preferences: preferencesResult.data,
     runtime: runtimeResult.data,
@@ -146,9 +150,16 @@ export async function updateWorkspaceRuntime(workspaceId, botStatus) {
 
 export async function invokeSecureBrokerLink(payload) {
   assertSupabase();
+  // #region debug-point A:secure-broker-link
+  fetch("http://127.0.0.1:7777/event", { method: "POST", body: JSON.stringify({ sessionId: "broker-balance-signals", runId: "pre", hypothesisId: "A", location: "supabaseWorkspace.js:invokeSecureBrokerLink", msg: "[DEBUG] invoking secure broker link", data: { action: payload?.action, brokerKey: payload?.brokerKey, provider: payload?.provider, accountType: payload?.accountType, hasEmail: Boolean(payload?.email), passwordLength: String(payload?.password || "").length }, ts: Date.now() }) }).catch(() => {});
+  // #endregion
   const { data, error } = await supabase.functions.invoke('secure-broker-link', {
     body: payload
   });
+
+  // #region debug-point A:secure-broker-link-result
+  fetch("http://127.0.0.1:7777/event", { method: "POST", body: JSON.stringify({ sessionId: "broker-balance-signals", runId: "pre", hypothesisId: "A", location: "supabaseWorkspace.js:invokeSecureBrokerLink", msg: "[DEBUG] secure broker link result", data: { action: payload?.action, brokerKey: payload?.brokerKey, ok: !error, errorMessage: error?.message || null, errorName: error?.name || null }, ts: Date.now() }) }).catch(() => {});
+  // #endregion
 
   if (error) throw error;
   return data;

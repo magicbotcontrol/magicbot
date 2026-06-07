@@ -98,6 +98,10 @@ export function DailySignalsTab({ t, canViewDailyList, showToast, marketCode, ti
       return;
     }
 
+    // #region debug-point C:copy-daily-signals
+    fetch("http://127.0.0.1:7777/event", { method: "POST", body: JSON.stringify({ sessionId: "broker-balance-signals", runId: "pre", hypothesisId: "C", location: "DailySignalsTab.jsx:copySignals", msg: "[DEBUG] copy daily signals requested", data: { marketCode, selectedDate, selectedAsset, mode, parsedCount: parsedSignals.length, secureContext: Boolean(window.isSecureContext), clipboard: Boolean(navigator.clipboard) }, ts: Date.now() }) }).catch(() => {});
+    // #endregion
+
     const includeOpenOnly = mode === 'open';
     const lines = parsedSignals
       .filter((signal) => signal.isValid)
@@ -114,6 +118,9 @@ export function DailySignalsTab({ t, canViewDailyList, showToast, marketCode, ti
       await navigator.clipboard.writeText(lines);
       showToast(t.copiedToClipboard || 'Copiado!');
     } catch {
+      // #region debug-point C:copy-daily-signals-failed
+      fetch("http://127.0.0.1:7777/event", { method: "POST", body: JSON.stringify({ sessionId: "broker-balance-signals", runId: "pre", hypothesisId: "C", location: "DailySignalsTab.jsx:copySignals", msg: "[DEBUG] copy daily signals failed", data: { marketCode, selectedDate, selectedAsset, mode }, ts: Date.now() }) }).catch(() => {});
+      // #endregion
       showToast(t.supabaseSyncError);
     }
   };

@@ -8,14 +8,70 @@ function assertSupabase() {
   }
 }
 
+function isMissingColumnError(error, columnName) {
+  const message = String(error?.message || error?.details || '');
+  return message.toLowerCase().includes(columnName.toLowerCase());
+}
+
+async function listAdminProfiles() {
+  const withTestFlag = await supabase
+    .from('profiles')
+    .select('id, email, role, created_at, is_test_account')
+    .order('created_at', { ascending: false });
+
+  if (!withTestFlag.error) {
+    return withTestFlag;
+  }
+
+  if (!isMissingColumnError(withTestFlag.error, 'is_test_account')) {
+    return withTestFlag;
+  }
+
+  const fallback = await supabase
+    .from('profiles')
+    .select('id, email, role, created_at')
+    .order('created_at', { ascending: false });
+
+  if (!fallback.error) {
+    fallback.data = (fallback.data || []).map((profile) => ({ ...profile, is_test_account: false }));
+  }
+
+  return fallback;
+}
+
+async function getAdminProfileById(profileId) {
+  const withTestFlag = await supabase
+    .from('profiles')
+    .select('id, email, role, created_at, is_test_account')
+    .eq('id', profileId)
+    .maybeSingle();
+
+  if (!withTestFlag.error) {
+    return withTestFlag;
+  }
+
+  if (!isMissingColumnError(withTestFlag.error, 'is_test_account')) {
+    return withTestFlag;
+  }
+
+  const fallback = await supabase
+    .from('profiles')
+    .select('id, email, role, created_at')
+    .eq('id', profileId)
+    .maybeSingle();
+
+  if (!fallback.error && fallback.data) {
+    fallback.data = { ...fallback.data, is_test_account: false };
+  }
+
+  return fallback;
+}
+
 export async function getAdminOverview() {
   assertSupabase();
 
   const [profilesResult, workspacesResult, licensesResult, runtimeResult, brokersResult, signalListsResult, liveOperationsResult] = await Promise.all([
-    supabase
-      .from('profiles')
-      .select('id, email, role, created_at')
-      .order('created_at', { ascending: false }),
+    listAdminProfiles(),
     supabase
       .from('app_workspaces')
       .select('id, slug, name, owner_user_id, created_at')
@@ -127,6 +183,8 @@ export async function getAdminOverview() {
     summary: {
       usersCount: profiles.length,
       adminsCount: profiles.filter((profile) => profile.role === 'admin').length,
+      testAccountsCount: profiles.filter((profile) => profile.is_test_account).length,
+      testWorkspacesCount: workspaces.filter((workspace) => profileMap.get(workspace.owner_user_id)?.is_test_account).length,
       workspacesCount: workspaces.length
     },
     users: profiles.map((profile) => ({
@@ -134,6 +192,7 @@ export async function getAdminOverview() {
       email: profile.email || 'sem-email',
       role: profile.role || 'user',
       createdAt: profile.created_at,
+      isTestAccount: Boolean(profile.is_test_account),
       workspacesCount: workspacesByOwner[profile.id] || 0,
       remainingDays: primaryMetricsByOwner[profile.id]?.license.remainingDays || 0,
       licenseStatus: primaryMetricsByOwner[profile.id]?.license.status || 'expired',
@@ -148,6 +207,7 @@ export async function getAdminOverview() {
       slug: workspace.slug,
       ownerUserId: workspace.owner_user_id,
       ownerEmail: profileMap.get(workspace.owner_user_id)?.email || 'sem-email',
+      ownerIsTestAccount: Boolean(profileMap.get(workspace.owner_user_id)?.is_test_account),
       createdAt: workspace.created_at,
       runtimeStatus: metricsByWorkspaceId.get(workspace.id)?.runtimeStatus || 'offline',
       linkedBrokersCount: metricsByWorkspaceId.get(workspace.id)?.linkedBrokersCount || 0,
@@ -162,6 +222,20 @@ export async function getAdminOverview() {
       accuracy: metricsByWorkspaceId.get(workspace.id)?.accuracy || 0
     }))
   };
+}
+
+export async function updateAdminProfileTestAccount(userId, isTestAccount) {
+  assertSupabase();
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ is_test_account: Boolean(isTestAccount) })
+    .eq('id', userId)
+    .select('id, email, is_test_account')
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
 }
 
 export async function getAdminWorkspaceDetails(workspaceId) {
@@ -239,11 +313,7 @@ export async function getAdminWorkspaceDetails(workspaceId) {
   if (dailyEntitlementsResult.error) throw dailyEntitlementsResult.error;
   if (automatorEntitlementsResult.error) throw automatorEntitlementsResult.error;
 
-  const ownerResult = await supabase
-    .from('profiles')
-    .select('id, email, role, created_at')
-    .eq('id', workspaceResult.data.owner_user_id)
-    .maybeSingle();
+  const ownerResult = await getAdminProfileById(workspaceResult.data.owner_user_id);
 
   if (ownerResult.error) throw ownerResult.error;
 
@@ -277,6 +347,7 @@ export async function getAdminWorkspaceDetails(workspaceId) {
       id: ownerResult.data?.id || workspaceResult.data.owner_user_id,
       email: ownerResult.data?.email || 'sem-email',
       role: ownerResult.data?.role || 'user',
+      isTestAccount: Boolean(ownerResult.data?.is_test_account),
       createdAt: ownerResult.data?.created_at || null
     },
     preferences: preferencesResult.data || null,

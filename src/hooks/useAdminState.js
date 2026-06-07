@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { getAdminOverview, getAdminWorkspaceDetails } from '../services/supabaseAdmin';
+import { getAdminOverview, getAdminWorkspaceDetails, updateAdminProfileTestAccount } from '../services/supabaseAdmin';
 import { getAdminDailySignalFeed, listAdminDailySignalFeeds, saveAdminDailySignalFeed } from '../services/supabaseAdminSignals';
 import {
   adminGrantAutomatorEntitlement,
@@ -12,7 +12,7 @@ import {
 import { grantUserMonthlyWaiver } from '../services/supabaseLicense';
 
 const EMPTY_OVERVIEW = {
-  summary: { usersCount: 0, adminsCount: 0, workspacesCount: 0 },
+  summary: { usersCount: 0, adminsCount: 0, testAccountsCount: 0, testWorkspacesCount: 0, workspacesCount: 0 },
   users: [],
   workspaces: []
 };
@@ -29,11 +29,16 @@ function sortByCreatedAt(items, direction) {
 function applyUserFilters(users, filters) {
   const emailQuery = filters.email.trim().toLowerCase();
   const roleQuery = filters.role;
+  const testAccountsQuery = filters.testAccounts;
 
   return users.filter((user) => {
     const emailMatches = !emailQuery || user.email.toLowerCase().includes(emailQuery);
     const roleMatches = roleQuery === 'all' || user.role === roleQuery;
-    return emailMatches && roleMatches;
+    const testMatches =
+      testAccountsQuery === 'all'
+      || (testAccountsQuery === 'test' && user.isTestAccount)
+      || (testAccountsQuery === 'real' && !user.isTestAccount);
+    return emailMatches && roleMatches && testMatches;
   });
 }
 
@@ -42,6 +47,7 @@ function applyWorkspaceFilters(workspaces, filters) {
   const emailQuery = filters.email.trim().toLowerCase();
   const runtimeQuery = filters.runtime;
   const brokersQuery = filters.brokers;
+  const testAccountsQuery = filters.testAccounts;
 
   return workspaces.filter((workspace) => {
     const slugMatches = !slugQuery || workspace.slug.toLowerCase().includes(slugQuery);
@@ -51,7 +57,11 @@ function applyWorkspaceFilters(workspaces, filters) {
       brokersQuery === 'all'
       || (brokersQuery === 'zero' && workspace.linkedBrokersCount === 0)
       || (brokersQuery === 'linked' && workspace.linkedBrokersCount > 0);
-    return slugMatches && ownerMatches && runtimeMatches && brokersMatches;
+    const testMatches =
+      testAccountsQuery === 'all'
+      || (testAccountsQuery === 'test' && workspace.ownerIsTestAccount)
+      || (testAccountsQuery === 'real' && !workspace.ownerIsTestAccount);
+    return slugMatches && ownerMatches && runtimeMatches && brokersMatches && testMatches;
   });
 }
 
@@ -73,7 +83,7 @@ export function useAdminState(isAdmin, showToast, t) {
   const errorMessageRef = useRef(t.supabaseSyncError);
   const [overview, setOverview] = useState(EMPTY_OVERVIEW);
   const [isAdminLoading, setIsAdminLoading] = useState(false);
-  const [filters, setFilters] = useState({ email: '', slug: '', role: 'all', runtime: 'all', brokers: 'all' });
+  const [filters, setFilters] = useState({ email: '', slug: '', role: 'all', runtime: 'all', brokers: 'all', testAccounts: 'all' });
   const [sortOrders, setSortOrders] = useState({ users: 'desc', workspaces: 'desc' });
   const [userPage, setUserPage] = useState(1);
   const [workspacePage, setWorkspacePage] = useState(1);
@@ -82,6 +92,7 @@ export function useAdminState(isAdmin, showToast, t) {
   const [isWorkspaceDetailsLoading, setIsWorkspaceDetailsLoading] = useState(false);
   const [selectedWaiverUser, setSelectedWaiverUser] = useState(null);
   const [isGrantingWaiver, setIsGrantingWaiver] = useState(false);
+  const [isUpdatingTestAccount, setIsUpdatingTestAccount] = useState(false);
   const [signalsFeedDate, setSignalsFeedDate] = useState(new Date().toLocaleDateString('en-CA'));
   const [signalsFeedMarket, setSignalsFeedMarket] = useState('ob');
   const [signalsFeedAssets, setSignalsFeedAssets] = useState([]);
@@ -303,6 +314,28 @@ export function useAdminState(isAdmin, showToast, t) {
     }
   };
 
+  const toggleTestAccount = async (userId, nextValue) => {
+    setIsUpdatingTestAccount(true);
+    try {
+      await updateAdminProfileTestAccount(userId, nextValue);
+      const nextOverview = await loadOverview();
+      setOverview(nextOverview);
+
+      if (selectedWorkspaceId) {
+        const details = await loadWorkspaceDetails(selectedWorkspaceId);
+        setWorkspaceDetails(details);
+      }
+
+      showToastRef.current(nextValue ? t.adminMarkedAsTest : t.adminUnmarkedAsTest);
+      return true;
+    } catch (error) {
+      showToastRef.current(error?.message || t.supabaseSaveError);
+      return false;
+    } finally {
+      setIsUpdatingTestAccount(false);
+    }
+  };
+
   const saveSignalsFeed = async () => {
     setIsSignalsFeedSaving(true);
     try {
@@ -478,6 +511,7 @@ export function useAdminState(isAdmin, showToast, t) {
     isAdminLoading,
     isWorkspaceDetailsLoading,
     isGrantingWaiver,
+    isUpdatingTestAccount,
     isSignalsFeedLoading,
     isSignalsFeedSaving,
     isGrantingSignalsAccess,
@@ -486,6 +520,7 @@ export function useAdminState(isAdmin, showToast, t) {
     openWaiverModal,
     closeWaiverModal,
     confirmMonthlyWaiver,
+    toggleTestAccount,
     setSignalsFeedDate,
     setSignalsFeedMarket,
     setSignalsFeedAssets,

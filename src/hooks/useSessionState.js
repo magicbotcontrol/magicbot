@@ -95,7 +95,7 @@ export function useSessionState(showToast, t) {
     showToast(t.sessionEnded);
   };
 
-  const handleLogIn = async ({ email, password, mode, referralCode }) => {
+  const handleLogIn = async ({ email, password, mode, referralCode, promoCode }) => {
     if (!supabaseEnabled || !supabase) {
       showToast(t.supabaseConnectionError);
       setAuthFeedback(createAuthFeedback(AUTH_FEEDBACK_STATUS.error, t.supabaseConnectionError));
@@ -111,7 +111,8 @@ export function useSessionState(showToast, t) {
           options: {
             emailRedirectTo: getRedirectUrl('/confirm-email.html'),
             data: {
-              referral_code: referralCode || null
+              referral_code: referralCode || null,
+              promo_code: promoCode || null
             }
           }
         });
@@ -257,6 +258,7 @@ export function useSessionState(showToast, t) {
   return {
     session,
     user: session?.user || null,
+    promoCode: session?.user?.user_metadata?.promo_code || '',
     profile,
     role: profile?.role || 'user',
     isAdmin: profile?.role === 'admin',

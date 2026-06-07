@@ -108,7 +108,14 @@ export function AdminWorkspaceDetailsModal({
                 </div>
                 <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-[#334155] dark:bg-[#111827]">
                   <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">{t.adminWorkspaceOwner}</p>
-                  <p className="mt-2 text-base font-bold text-gray-900 dark:text-white">{details.owner.email}</p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <p className="text-base font-bold text-gray-900 dark:text-white">{details.owner.email}</p>
+                    {details.owner.isTestAccount ? (
+                      <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+                        {t.adminTestBadge}
+                      </span>
+                    ) : null}
+                  </div>
                   <p className="mt-1 text-xs text-gray-500 dark:text-[#94A3B8]">{details.owner.role === 'admin' ? t.adminRoleAdmin : t.adminRoleUser}</p>
                 </div>
                 <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-[#334155] dark:bg-[#111827]">

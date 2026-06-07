@@ -26,6 +26,7 @@ import { useAdminState } from './hooks/useAdminState';
 import { useAffiliatesState } from './hooks/useAffiliatesState';
 import { useDashboardState } from './hooks/useDashboardState';
 import { useLicenseState } from './hooks/useLicenseState';
+import { useCopyTradingEntitlementState } from './hooks/useCopyTradingEntitlementState';
 import { useSignalsEntitlementState } from './hooks/useSignalsEntitlementState';
 import { useSessionState } from './hooks/useSessionState';
 import { useSettingsState } from './hooks/useSettingsState';
@@ -45,6 +46,7 @@ export default function App() {
   const dashboard = useDashboardState(workspace.workspaceId, session.isLoggedIn, ui.showToast, ui.t);
   const license = useLicenseState(workspace.workspaceId, session.isLoggedIn, session.isAdmin, ui.showToast, playAlertSound, ui.t);
   const signalsEntitlement = useSignalsEntitlementState(workspace.workspaceId, session.isLoggedIn, ui.showToast, ui.t);
+  const copyEntitlement = useCopyTradingEntitlementState(workspace.workspaceId, session.isLoggedIn, ui.showToast, ui.t);
   const broker = useBrokerState(workspace.workspaceId, ui.showToast, playAlertSound, ui.t);
   const settings = useSettingsState(workspace.workspaceId, ui.showToast, ui.t);
   const signals = useSignalsState({
@@ -60,11 +62,11 @@ export default function App() {
   });
 
   const isSignalsOnly = !session.isAdmin && !signalsEntitlement.isSignalsAutomatorActive && signalsEntitlement.isSignalsDailyListActive;
-  const visibleTabs = isSignalsOnly ? ['signals', 'account', 'shop'] : null;
+  const visibleTabs = isSignalsOnly ? ['signals', 'copy', 'account', 'shop'] : null;
 
   useEffect(() => {
     if (!isSignalsOnly) return;
-    const allowed = new Set(['signals', 'account', 'shop']);
+    const allowed = new Set(['signals', 'copy', 'account', 'shop']);
     if (!allowed.has(ui.activeTab)) {
       ui.setActiveTab('signals');
     }
@@ -145,7 +147,7 @@ export default function App() {
   const renderActiveTab = () => {
     const isSignalsUnlocked = session.isAdmin || signalsEntitlement.isSignalsAutomatorActive || signalsEntitlement.isSignalsDailyListActive;
     const isPremiumBlocked = !session.isAdmin && !signalsEntitlement.isSignalsAutomatorActive;
-    const premiumTabs = new Set(['live', 'strategies', 'ai', 'copy', 'settings']);
+    const premiumTabs = new Set(['live', 'strategies', 'ai', 'settings']);
     if (!isSignalsUnlocked) {
       premiumTabs.add('signals');
       premiumTabs.add('account');
@@ -250,7 +252,16 @@ export default function App() {
           />
         );
       case 'copy':
-        return <CopyTab showToast={ui.showToast} t={ui.t} formatMoney={ui.formatMoney} />;
+        return (
+          <CopyTab
+            showToast={ui.showToast}
+            t={ui.t}
+            promoCode={session.promoCode}
+            copyEntitlement={copyEntitlement.copyEntitlement}
+            isCopyTradingActive={copyEntitlement.isCopyTradingActive}
+            isCopyEntitlementLoading={copyEntitlement.isCopyEntitlementLoading}
+          />
+        );
       case 'affiliates':
         return (
           <AffiliatesTab
@@ -286,6 +297,7 @@ export default function App() {
         return (
           <AdminTab
             t={ui.t}
+            showToast={ui.showToast}
             summary={admin.summary}
             users={admin.users}
             workspaces={admin.workspaces}

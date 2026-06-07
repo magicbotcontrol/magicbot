@@ -60,6 +60,10 @@ export async function saveSignalList({ workspaceId, listDate, signalsText, parse
   const validSignals = parsedSignals.filter((signal) => signal.isValid && !signal.isIgnored);
   const validCount = validSignals.length;
 
+  // #region debug-point B:save-signal-list-start
+  fetch("http://127.0.0.1:7777/event", { method: "POST", body: JSON.stringify({ sessionId: "broker-balance-signals", runId: "pre", hypothesisId: "B", location: "supabaseSignals.js:saveSignalList", msg: "[DEBUG] saveSignalList start", data: { workspaceId, listDate, totalCount, validCount, entryValue: Number(entryValue || 0) || 0, rawLength: String(signalsText || "").length }, ts: Date.now() }) }).catch(() => {});
+  // #endregion
+
   const listResult = await supabase
     .from('signal_lists')
     .upsert({
@@ -72,12 +76,22 @@ export async function saveSignalList({ workspaceId, listDate, signalsText, parse
     .select('*')
     .single();
 
-  if (listResult.error) throw listResult.error;
+  if (listResult.error) {
+    // #region debug-point B:save-signal-list-error
+    fetch("http://127.0.0.1:7777/event", { method: "POST", body: JSON.stringify({ sessionId: "broker-balance-signals", runId: "pre", hypothesisId: "B", location: "supabaseSignals.js:signal_lists", msg: "[DEBUG] signal_lists upsert failed", data: { workspaceId, listDate, errorMessage: listResult.error?.message || null, errorCode: listResult.error?.code || null, errorDetails: listResult.error?.details || null, errorHint: listResult.error?.hint || null }, ts: Date.now() }) }).catch(() => {});
+    // #endregion
+    throw listResult.error;
+  }
 
   const signalList = listResult.data;
 
   const { error: deleteItemsError } = await supabase.from('signal_items').delete().eq('signal_list_id', signalList.id);
-  if (deleteItemsError) throw deleteItemsError;
+  if (deleteItemsError) {
+    // #region debug-point B:delete-items-error
+    fetch("http://127.0.0.1:7777/event", { method: "POST", body: JSON.stringify({ sessionId: "broker-balance-signals", runId: "pre", hypothesisId: "B", location: "supabaseSignals.js:signal_items_delete", msg: "[DEBUG] signal_items delete failed", data: { signalListId: signalList.id, errorMessage: deleteItemsError?.message || null, errorCode: deleteItemsError?.code || null }, ts: Date.now() }) }).catch(() => {});
+    // #endregion
+    throw deleteItemsError;
+  }
 
   const itemsPayload = parsedSignals.map((signal, index) => ({
     signal_list_id: signalList.id,
@@ -95,12 +109,22 @@ export async function saveSignalList({ workspaceId, listDate, signalsText, parse
     ? await supabase.from('signal_items').insert(itemsPayload).select('id, line_number')
     : { data: [], error: null };
 
-  if (itemsResult.error) throw itemsResult.error;
+  if (itemsResult.error) {
+    // #region debug-point B:insert-items-error
+    fetch("http://127.0.0.1:7777/event", { method: "POST", body: JSON.stringify({ sessionId: "broker-balance-signals", runId: "pre", hypothesisId: "B", location: "supabaseSignals.js:signal_items_insert", msg: "[DEBUG] signal_items insert failed", data: { signalListId: signalList.id, itemsCount: itemsPayload.length, errorMessage: itemsResult.error?.message || null, errorCode: itemsResult.error?.code || null, errorDetails: itemsResult.error?.details || null }, ts: Date.now() }) }).catch(() => {});
+    // #endregion
+    throw itemsResult.error;
+  }
 
   const signalItemMap = new Map((itemsResult.data || []).map((item) => [item.line_number, item.id]));
 
   const { error: deleteLiveError } = await supabase.from('live_operations').delete().eq('signal_list_id', signalList.id);
-  if (deleteLiveError) throw deleteLiveError;
+  if (deleteLiveError) {
+    // #region debug-point B:delete-live-error
+    fetch("http://127.0.0.1:7777/event", { method: "POST", body: JSON.stringify({ sessionId: "broker-balance-signals", runId: "pre", hypothesisId: "B", location: "supabaseSignals.js:live_operations_delete", msg: "[DEBUG] live_operations delete failed", data: { signalListId: signalList.id, errorMessage: deleteLiveError?.message || null, errorCode: deleteLiveError?.code || null }, ts: Date.now() }) }).catch(() => {});
+    // #endregion
+    throw deleteLiveError;
+  }
 
   const operationsPayload = buildLiveOperationsFromSignals(parsedSignals, entryValue).map((operation) => ({
     workspace_id: workspaceId,
@@ -113,7 +137,16 @@ export async function saveSignalList({ workspaceId, listDate, signalsText, parse
     ? await supabase.from('live_operations').insert(operationsPayload).select('*')
     : { data: [], error: null };
 
-  if (liveResult.error) throw liveResult.error;
+  if (liveResult.error) {
+    // #region debug-point B:insert-live-error
+    fetch("http://127.0.0.1:7777/event", { method: "POST", body: JSON.stringify({ sessionId: "broker-balance-signals", runId: "pre", hypothesisId: "B", location: "supabaseSignals.js:live_operations_insert", msg: "[DEBUG] live_operations insert failed", data: { signalListId: signalList.id, operationsCount: operationsPayload.length, errorMessage: liveResult.error?.message || null, errorCode: liveResult.error?.code || null, errorDetails: liveResult.error?.details || null }, ts: Date.now() }) }).catch(() => {});
+    // #endregion
+    throw liveResult.error;
+  }
+
+  // #region debug-point B:save-signal-list-ok
+  fetch("http://127.0.0.1:7777/event", { method: "POST", body: JSON.stringify({ sessionId: "broker-balance-signals", runId: "pre", hypothesisId: "B", location: "supabaseSignals.js:saveSignalList", msg: "[DEBUG] saveSignalList ok", data: { signalListId: signalList.id, itemsCount: itemsPayload.length, operationsCount: operationsPayload.length }, ts: Date.now() }) }).catch(() => {});
+  // #endregion
 
   return {
     signalList,

@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MagicBot Executor</title>
+    <style>
+      body { font-family: Arial, sans-serif; width: 340px; padding: 12px; }
+      label { display:block; font-size: 12px; margin-top: 10px; font-weight: 700; }
+      input { width: 100%; padding: 8px; box-sizing: border-box; margin-top: 6px; }
+      button { width: 100%; padding: 10px; margin-top: 12px; font-weight: 800; cursor: pointer; }
+      .row { display:flex; gap:8px; }
+      .row > div { flex:1; }
+      .muted { font-size: 11px; color: #666; margin-top: 8px; }
+      .status { font-size: 12px; font-weight: 700; margin-top: 10px; }
+      .ok { color: #0f766e; }
+      .bad { color: #b91c1c; }
+    </style>
+  </head>
+  <body>
+    <div class="status" id="status"></div>
+
+    <label>Supabase URL</label>
+    <input id="supabaseUrl" placeholder="https://xxxx.supabase.co" />
+
+    <label>Supabase anon key</label>
+    <input id="supabaseAnonKey" placeholder="ey..." />
+
+    <label>Login MagicBot (email)</label>
+    <input id="magicEmail" placeholder="email" />
+
+    <label>Login MagicBot (senha)</label>
+    <input id="magicPassword" type="password" placeholder="senha" />
+
+    <label>IQ Option (email)</label>
+    <input id="iqEmail" placeholder="email" />
+
+    <label>IQ Option (senha)</label>
+    <input id="iqPassword" type="password" placeholder="senha" />
+
+    <div class="row">
+      <div>
+        <button id="save">Salvar</button>
+      </div>
+      <div>
+        <button id="start">Ativar</button>
+      </div>
+    </div>
+
+    <button id="stop">Parar</button>
+    <button id="openIq">Abrir IQ Option</button>
+
+    <div class="muted">
+      A execução depende da sessão da IQ Option. Se expirar, a extensão tenta logar com os dados salvos.
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
+

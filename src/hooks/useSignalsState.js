@@ -485,6 +485,9 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
     setIsSignalsSaving(true);
 
     try {
+      // #region debug-point B:ui-save-signals
+      fetch("http://127.0.0.1:7777/event", { method: "POST", body: JSON.stringify({ sessionId: "broker-balance-signals", runId: "pre", hypothesisId: "B", location: "useSignalsState.js:handleSaveSignals", msg: "[DEBUG] UI save signals clicked", data: { workspaceId, selectedDate, selectedMarket, selectedAsset, sourceMode, isReadOnly, signalsLength: String(signalsText || "").length, parsedCount: signalsWithMeta.length, canUseSignals }, ts: Date.now() }) }).catch(() => {});
+      // #endregion
       const result = await saveSignalList({
         workspaceId,
         listDate: selectedDate,
@@ -497,6 +500,9 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
       setLiveSignals(result.liveOperations);
       showToast(t.saveListSuccess);
     } catch {
+      // #region debug-point B:ui-save-signals-error
+      fetch("http://127.0.0.1:7777/event", { method: "POST", body: JSON.stringify({ sessionId: "broker-balance-signals", runId: "pre", hypothesisId: "B", location: "useSignalsState.js:handleSaveSignals", msg: "[DEBUG] UI save signals failed", data: { workspaceId, selectedDate, selectedMarket, selectedAsset }, ts: Date.now() }) }).catch(() => {});
+      // #endregion
       showToast(t.supabaseSaveError);
     } finally {
       setIsSignalsSaving(false);
@@ -531,6 +537,9 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
     if (!canEditSignals) return;
     sourceTouchedRef.current = true;
     const draft = String(signalsText || '');
+    // #region debug-point C:copy-published-to-workspace
+    fetch("http://127.0.0.1:7777/event", { method: "POST", body: JSON.stringify({ sessionId: "broker-balance-signals", runId: "pre", hypothesisId: "C", location: "useSignalsState.js:copyPublishedListToWorkspace", msg: "[DEBUG] copy published list to workspace", data: { selectedDate, selectedMarket, selectedAsset, draftLength: draft.length }, ts: Date.now() }) }).catch(() => {});
+    // #endregion
     setWorkspaceListText(draft);
     setWorkspaceHasList(Boolean(draft.trim()));
     setWorkspaceLiveOperations([]);
