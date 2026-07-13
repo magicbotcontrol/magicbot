@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getSignalsByDate, saveSignalList } from '../services/supabaseSignals';
 import { getDailySignalFeed, listDailySignalFeedsByDate } from '../services/supabaseSignalFeed';
 import { listWorkspaceSignalExclusions, setWorkspaceSignalIgnored } from '../services/supabaseSignalExclusions';
@@ -40,6 +40,52 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
   const [isBotActionLoading, setIsBotActionLoading] = useState(false);
   const [botToleranceSeconds, setBotToleranceSeconds] = useState(5);
   const [isBotToleranceSaving, setIsBotToleranceSaving] = useState(false);
+  const [isBotStatusSyncing, setIsBotStatusSyncing] = useState(false);
+
+  const syncBotInstances = useCallback(async ({ withLoading = false, showSyncIndicator = false } = {}) => {
+    if (!workspaceId || !isLoggedIn) {
+      setBotInstances([]);
+      setBotStatus('offline');
+      if (showSyncIndicator) {
+        setIsBotStatusSyncing(false);
+      }
+      if (withLoading) {
+        setIsBotInstancesLoading(false);
+      }
+      return [];
+    }
+
+    if (withLoading) {
+      setIsBotInstancesLoading(true);
+    }
+    if (showSyncIndicator) {
+      setIsBotStatusSyncing(true);
+    }
+
+    try {
+      await ensureBotInstances(workspaceId);
+      const rows = await listBotInstances(workspaceId);
+      setBotInstances(rows || []);
+
+      const slotItem = (rows || []).find((item) => Number(item.slot) === Number(botSlot));
+      setBotStatus(slotItem?.status || 'offline');
+
+      if (typeof slotItem?.execution_tolerance_seconds === 'number') {
+        setBotToleranceSeconds(slotItem.execution_tolerance_seconds);
+      } else {
+        setBotToleranceSeconds(5);
+      }
+
+      return rows || [];
+    } finally {
+      if (showSyncIndicator) {
+        setIsBotStatusSyncing(false);
+      }
+      if (withLoading) {
+        setIsBotInstancesLoading(false);
+      }
+    }
+  }, [workspaceId, isLoggedIn, botSlot]);
 
   useEffect(() => {
     let mounted = true;
@@ -56,7 +102,7 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
       .then(async ([workspaceData, signalsData]) => {
         if (!mounted) return;
         const legacyStatus = workspaceData.runtime?.bot_status || 'offline';
-        setBotStatus((current) => (current === 'running' || legacyStatus === 'running' ? current : legacyStatus));
+        setBotStatus(legacyStatus);
         const raw = signalsData.signalList?.raw_text || '';
         const hasList = Boolean(raw && raw.trim());
         setWorkspaceListText(raw);
@@ -83,41 +129,29 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
   }, [workspaceId, isLoggedIn, selectedDate, showToast, t, hasDailyListAccess, canEditSignals]);
 
   useEffect(() => {
-    let mounted = true;
     if (!workspaceId || !isLoggedIn) {
       setBotInstances([]);
+      setBotStatus('offline');
       setIsBotInstancesLoading(false);
       return undefined;
     }
 
-    setIsBotInstancesLoading(true);
-    ensureBotInstances(workspaceId)
-      .then(() => listBotInstances(workspaceId))
-      .then((rows) => {
-        if (!mounted) return;
-        setBotInstances(rows || []);
-        const slotItem = (rows || []).find((item) => Number(item.slot) === Number(botSlot));
-        if (slotItem?.status) {
-          setBotStatus(slotItem.status);
-        }
-        if (typeof slotItem?.execution_tolerance_seconds === 'number') {
-          setBotToleranceSeconds(slotItem.execution_tolerance_seconds);
-        } else {
-          setBotToleranceSeconds(5);
-        }
-      })
-      .catch(() => {
-        if (!mounted) return;
-      })
-      .finally(() => {
-        if (!mounted) return;
-        setIsBotInstancesLoading(false);
-      });
+    syncBotInstances({ withLoading: true, showSyncIndicator: true }).catch(() => {});
 
-    return () => {
-      mounted = false;
-    };
-  }, [workspaceId, isLoggedIn, botSlot]);
+    return undefined;
+  }, [workspaceId, isLoggedIn, botSlot, syncBotInstances]);
+
+  useEffect(() => {
+    if (!workspaceId || !isLoggedIn) {
+      return undefined;
+    }
+
+    const timer = setInterval(() => {
+      syncBotInstances().catch(() => {});
+    }, botStatus === 'running' ? 5000 : 15000);
+
+    return () => clearInterval(timer);
+  }, [workspaceId, isLoggedIn, botStatus, syncBotInstances]);
 
   const handleSetBotToleranceSeconds = async (nextSeconds) => {
     if (!workspaceId) return;
@@ -380,22 +414,25 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
 
   const validCount = signalsWithMeta.filter((signal) => signal.isValid && !signal.isIgnored).length;
   const ignoredCount = signalsWithMeta.filter((signal) => signal.isIgnored).length;
+  const executableSignalsCount = signalsWithMeta.filter((signal) => signal.isValid && !signal.isIgnored && signal.isScheduledTime).length;
 
   const canStartBot = Boolean(hasAutomatorAccess) && (
     Boolean(signalsText.trim())
-      && validCount > 0
+      && executableSignalsCount > 0
       && (sourceMode !== 'published' ? true : Boolean(selectedAsset))
   );
 
   const handleStartBot = async () => {
-    if (!canStartBot) {
+    const nextStatus = botStatus === 'offline' ? 'running' : 'offline';
+
+    if (nextStatus === 'running' && !canStartBot) {
       if (!hasAutomatorAccess) {
         showToast(t.avisoExpirado);
         setActiveTab('shop');
         return;
       }
 
-      if (sourceMode === 'published' && (!selectedAsset || !signalsText.trim() || validCount === 0)) {
+      if (sourceMode === 'published' && (!selectedAsset || !signalsText.trim() || executableSignalsCount === 0)) {
         showToast(t.waitingDailyList || 'Aguardando lista diária publicada pelo admin para esta data.');
         return;
       }
@@ -404,8 +441,8 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
       return;
     }
 
-    if (validCount === 0) {
-      showToast(t.addValidSignals);
+    if (nextStatus === 'running' && executableSignalsCount === 0) {
+      showToast(t.noTimedSignalsToQueue || 'Adicione pelo menos um sinal com horário no formato HH:MM para automatizar a lista.');
       return;
     }
 
@@ -414,13 +451,12 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
       return;
     }
 
-    const nextStatus = botStatus === 'offline' ? 'running' : 'offline';
+    setIsBotStatusSyncing(true);
 
     try {
       if (nextStatus === 'running') {
         const jobs = signalsWithMeta
-          .filter((s) => s.isValid && !s.isIgnored)
-          .filter((s) => /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(String(s.timeOrRate || '').trim()))
+          .filter((s) => s.isValid && !s.isIgnored && s.isScheduledTime)
           .map((s) => ({
             signal_key: s.signalKey,
             line_number: s.lineNumber,
@@ -445,23 +481,28 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
           jobs
         });
 
+        await updateWorkspaceRuntime(workspaceId, 'running');
         setBotStatus('running');
         setBotInstances((prev) => prev.map((b) => (Number(b.slot) === Number(botSlot) ? { ...b, status: 'running' } : b)));
+        await syncBotInstances({ showSyncIndicator: true });
         playAlertSound(880, 0.3);
         showToast(t.botRunningToast);
       } else {
         try {
           await stopWorkspaceBot({ workspaceId, slot: botSlot });
-        } catch {
+        } finally {
           await updateWorkspaceRuntime(workspaceId, 'offline');
         }
         setBotStatus('offline');
         setBotInstances((prev) => prev.map((b) => (Number(b.slot) === Number(botSlot) ? { ...b, status: 'offline' } : b)));
+        await syncBotInstances({ showSyncIndicator: true });
         playAlertSound(440, 0.3);
         showToast(t.botPausedToast);
       }
     } catch {
       showToast(t.supabaseSaveError);
+    } finally {
+      setIsBotStatusSyncing(false);
     }
   };
 
@@ -637,6 +678,7 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
     isBotInstancesLoading,
     botToleranceSeconds,
     isBotToleranceSaving,
+    isBotStatusSyncing,
     setBotToleranceSeconds: handleSetBotToleranceSeconds,
     botQueueSummary,
     botRecentEvents,
@@ -668,6 +710,7 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
     fileInputRef,
     parsedSignals: signalsWithMeta,
     validCount,
+    executableSignalsCount,
     ignoredCount,
     isExclusionsLoading,
     isExclusionsSaving,

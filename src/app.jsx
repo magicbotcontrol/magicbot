@@ -49,6 +49,9 @@ export default function App() {
   const copyEntitlement = useCopyTradingEntitlementState(workspace.workspaceId, session.isLoggedIn, ui.showToast, ui.t);
   const broker = useBrokerState(workspace.workspaceId, ui.showToast, playAlertSound, ui.t);
   const settings = useSettingsState(workspace.workspaceId, ui.showToast, ui.t);
+  const selectedBrokerName = settings.config.broker;
+  const selectedBrokerItem = broker.brokersList.find((item) => item.name === selectedBrokerName) || null;
+  const linkedBrokersCount = broker.brokersList.filter((item) => item.status === 'Linked').length;
   const signals = useSignalsState({
     workspaceId: workspace.workspaceId,
     isLoggedIn: session.isLoggedIn,
@@ -181,6 +184,7 @@ export default function App() {
             botToleranceSeconds={signals.botToleranceSeconds}
             setBotToleranceSeconds={signals.setBotToleranceSeconds}
             isBotToleranceSaving={signals.isBotToleranceSaving}
+            isBotStatusSyncing={signals.isBotStatusSyncing}
             botQueueSummary={signals.botQueueSummary}
             botRecentEvents={signals.botRecentEvents}
             isBotQueueLoading={signals.isBotQueueLoading}
@@ -213,12 +217,17 @@ export default function App() {
             handleExport={signals.handleExport}
             parsedSignals={signals.parsedSignals}
             validCount={signals.validCount}
+            executableSignalsCount={signals.executableSignalsCount}
             ignoredCount={signals.ignoredCount}
             isExclusionsSaving={signals.isExclusionsSaving}
             toggleSignalIgnored={signals.toggleSignalIgnored}
             isSignalsLoading={signals.isSignalsLoading}
             isSignalsSaving={signals.isSignalsSaving}
             handleOpenInBroker={handleOpenSignalInBroker}
+            selectedBrokerName={selectedBrokerName}
+            selectedAccountType={settings.config.accountType}
+            isBrokerLinked={selectedBrokerItem?.status === 'Linked'}
+            linkedBrokersCount={linkedBrokersCount}
           />
         );
       case 'live':
@@ -267,9 +276,11 @@ export default function App() {
           <AffiliatesTab
             handleCopyText={handleCopyText}
             t={ui.t}
+            formatMoney={ui.formatMoney}
             referralCode={session.referralCode}
             summary={affiliates.affiliateSummary}
             network={affiliates.affiliateNetwork}
+            matrix={affiliates.affiliateMatrix}
             isLoading={affiliates.isAffiliatesLoading}
           />
         );

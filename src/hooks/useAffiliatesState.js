@@ -3,16 +3,29 @@ import { getAffiliateOverview } from '../services/supabaseAffiliates';
 
 const EMPTY_AFFILIATE_OVERVIEW = {
   summary: {
+    canReceiveBonuses: false,
     level1Count: 0,
     level2Count: 0,
     totalLeads: 0,
+    networkCount: 0,
     activeCount: 0,
+    activeNetworkCount: 0,
     activeLevel1Count: 0,
-    activeLevel2Count: 0
+    activeLevel2Count: 0,
+    maxDepthReached: 0,
+    matrixFilledCount: 0,
+    matrixCapacity: 0,
+    unilevelEstimatedAmount: 0,
+    matrixEstimatedAmount: 0,
+    totalEstimatedAmount: 0
   },
   network: {
     level1: [],
-    level2: []
+    level2: [],
+    levels: []
+  },
+  matrix: {
+    rows: []
   }
 };
 
@@ -61,6 +74,7 @@ export function useAffiliatesState(isLoggedIn, showToast, t) {
   return {
     affiliateSummary: overview.summary,
     affiliateNetwork: overview.network,
+    affiliateMatrix: overview.matrix,
     isAffiliatesLoading
   };
 }

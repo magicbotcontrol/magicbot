@@ -23,6 +23,7 @@ export function parseSignalsText(signalsText, t) {
         const tfRegex = /^M(1|5|15|30|60)$/i;
         const actRegex = /^(CALL|PUT)$/i;
         const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+        const isScheduledTime = timeRegex.test(parts[2] || '');
 
         if (!tfRegex.test(parts[0])) error = t.invalidTimeframe;
         else if (parts[1].length < 6) error = t.invalidAsset;
@@ -52,6 +53,7 @@ export function parseSignalsText(signalsText, t) {
         asset: parts[1]?.toUpperCase() || '-',
         timeOrRate: parts[2] || '-',
         action: parts[3]?.toUpperCase() || '-',
+        isScheduledTime: /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(parts[2] || ''),
         isValid,
         error
       };
