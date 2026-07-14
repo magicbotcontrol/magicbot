@@ -74,6 +74,29 @@ export function SettingsTab({ config, setConfig, showToast, playAlertSound, t, c
                 <option value="Manual">Manual</option>
               </select>
             </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Execução da Lista *</label>
+              <select value={config.executionMode || 'Assisted'} onChange={(e) => setConfig({ ...config, executionMode: e.target.value })} className="w-full border border-gray-200 dark:border-gray-700 rounded-xl p-2.5 text-xs bg-gray-50 dark:bg-[#334155] dark:text-white">
+                <option value="Assisted">Assistida</option>
+                <option value="Simulation">Simulação / Paper</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Antecipação do Alerta *</label>
+              <select value={config.preExecutionLeadSeconds || '10'} onChange={(e) => setConfig({ ...config, preExecutionLeadSeconds: e.target.value })} className="w-full border border-gray-200 dark:border-gray-700 rounded-xl p-2.5 text-xs bg-gray-50 dark:bg-[#334155] dark:text-white">
+                <option value="10">10 segundos</option>
+                <option value="15">15 segundos</option>
+              </select>
+            </div>
+
+            <div className="col-span-2">
+              <label className="flex items-center space-x-2 text-xs font-bold text-gray-700 dark:text-gray-300 cursor-pointer rounded-xl border border-gray-100 dark:border-gray-700 p-3 bg-gray-50/50 dark:bg-[#334155]">
+                <input type="checkbox" checked={Boolean(config.browserAlertsEnabled)} onChange={(e) => setConfig({ ...config, browserAlertsEnabled: e.target.checked })} className="rounded text-[#FF6B00]" />
+                <span>Alertas do navegador e som na proximidade da ordem</span>
+              </label>
+            </div>
           </div>
         </div>
 

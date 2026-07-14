@@ -6,6 +6,26 @@ function assertSupabase() {
   }
 }
 
+function isOptionalBlueprintError(error) {
+  const code = String(error?.code || '').toUpperCase();
+  const text = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`.toLowerCase();
+  return (
+    ['42P01', '42703', 'PGRST204', 'PGRST205'].includes(code)
+    || text.includes('does not exist')
+    || text.includes('schema cache')
+    || text.includes('could not find')
+  );
+}
+
+async function resolveOptionalQuery(queryPromise, fallbackValue) {
+  const { data, error } = await queryPromise;
+  if (error) {
+    if (isOptionalBlueprintError(error)) return fallbackValue;
+    throw error;
+  }
+  return data ?? fallbackValue;
+}
+
 export async function ensureBotInstances(workspaceId) {
   assertSupabase();
   const { data, error } = await supabase.rpc('ensure_workspace_bot_instances', { p_workspace_id: workspaceId });
@@ -88,6 +108,39 @@ export async function updateBotInstanceTolerance({ workspaceId, slot, executionT
   const { data, error } = await supabase
     .from('workspace_bot_instances')
     .update({ execution_tolerance_seconds: nextSeconds })
+    .eq('id', bot.id)
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function updateBotInstanceExecutionConfig({
+  workspaceId,
+  slot,
+  accountType,
+  defaultOrderAmount
+}) {
+  assertSupabase();
+  const bots = await listBotInstances(workspaceId);
+  const bot = bots.find((b) => Number(b.slot) === Number(slot));
+  if (!bot?.id) {
+    throw new Error('Bot slot not found.');
+  }
+
+  const normalizedAccountType = String(accountType || '').trim() === 'Real' ? 'Real' : 'Demo';
+  const parsedAmount = Number(defaultOrderAmount);
+  const normalizedDefaultOrderAmount = Number.isFinite(parsedAmount) && parsedAmount > 0
+    ? Number(parsedAmount.toFixed(2))
+    : null;
+
+  const { data, error } = await supabase
+    .from('workspace_bot_instances')
+    .update({
+      account_type: normalizedAccountType,
+      default_order_amount: normalizedDefaultOrderAmount
+    })
     .eq('id', bot.id)
     .select('*')
     .single();
@@ -231,4 +284,81 @@ export async function listTradeJobEvents({ workspaceId, slot, limit = 20 }) {
 
   if (error) throw error;
   return data || [];
+}
+
+export async function createAutomationCommand({
+  workspaceId,
+  botInstanceId,
+  commandType,
+  payload = {}
+}) {
+  assertSupabase();
+  if (!workspaceId || !commandType) {
+    throw new Error('Workspace and command type are required.');
+  }
+
+  const { data, error } = await supabase
+    .from('automation_commands')
+    .insert({
+      workspace_id: workspaceId,
+      bot_instance_id: botInstanceId || null,
+      command_type: commandType,
+      payload: payload || {}
+    })
+    .select('*')
+    .single();
+
+  if (error) {
+    if (isOptionalBlueprintError(error)) return null;
+    throw error;
+  }
+
+  return data || null;
+}
+
+export async function getAutomationWorkerNode(workerId) {
+  assertSupabase();
+  if (!workerId) return null;
+  return resolveOptionalQuery(
+    supabase
+      .from('automation_worker_nodes')
+      .select('*')
+      .eq('id', workerId)
+      .maybeSingle(),
+    null
+  );
+}
+
+export async function listAutomationCommands({ workspaceId, botInstanceId, limit = 10 }) {
+  assertSupabase();
+  if (!workspaceId) return [];
+
+  let query = supabase
+    .from('automation_commands')
+    .select('*')
+    .eq('workspace_id', workspaceId)
+    .order('created_at', { ascending: false })
+    .limit(Number(limit) || 10);
+
+  if (botInstanceId) {
+    query = query.eq('bot_instance_id', botInstanceId);
+  }
+
+  return resolveOptionalQuery(query, []);
+}
+
+export async function listTradeJobAttempts({ workspaceId, botInstanceId, limit = 12 }) {
+  assertSupabase();
+  if (!workspaceId || !botInstanceId) return [];
+
+  return resolveOptionalQuery(
+    supabase
+      .from('trade_job_attempts')
+      .select('*')
+      .eq('workspace_id', workspaceId)
+      .eq('bot_instance_id', botInstanceId)
+      .order('started_at', { ascending: false })
+      .limit(Number(limit) || 12),
+    []
+  );
 }

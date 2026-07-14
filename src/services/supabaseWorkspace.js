@@ -14,6 +14,12 @@ function mapBrokerRow(row) {
     logoColor: row.logo_color,
     status: row.status,
     email: row.email || '',
+    emailMasked: row.credential_email_masked || row.email || '',
+    authMode: row.auth_mode || 'none',
+    workerAuthReady: Boolean(row.worker_auth_ready),
+    credentialReference: row.credential_reference || '',
+    credentialsUpdatedAt: row.credentials_updated_at || null,
+    connectionNotes: row.connection_notes || '',
     balance: Number(row.balance || 0),
     baseCurrency: row.base_currency || 'USD',
     accountType: row.account_type || 'Demo'
@@ -69,7 +75,7 @@ export async function getWorkspaceBootstrap(workspaceId) {
   if (settingsResult.error) throw settingsResult.error;
 
   // #region debug-point D:workspace-bootstrap
-  fetch("http://127.0.0.1:7777/event", { method: "POST", body: JSON.stringify({ sessionId: "broker-balance-signals", runId: "pre", hypothesisId: "D", location: "supabaseWorkspace.js:getWorkspaceBootstrap", msg: "[DEBUG] workspace bootstrap loaded", data: { workspaceId, runtime: runtimeResult.data?.bot_status || null, preferences: { selectedTimezone: preferencesResult.data?.selected_timezone || null }, brokers: (brokersResult.data || []).map((b) => ({ brokerKey: b.broker_key, status: b.status, balance: Number(b.balance || 0), accountType: b.account_type || null, baseCurrency: b.base_currency || null, hasEmail: Boolean(b.email) })), settingsKeys: Object.keys(settingsResult.data?.config || {}), settingsAccountType: (settingsResult.data?.config || {})?.accountType || null }, ts: Date.now() }) }).catch(() => {});
+  fetch("http://127.0.0.1:7777/event", { method: "POST", body: JSON.stringify({ sessionId: "broker-balance-signals", runId: "pre", hypothesisId: "D", location: "supabaseWorkspace.js:getWorkspaceBootstrap", msg: "[DEBUG] workspace bootstrap loaded", data: { workspaceId, runtime: runtimeResult.data?.bot_status || null, preferences: { selectedTimezone: preferencesResult.data?.selected_timezone || null }, brokers: (brokersResult.data || []).map((b) => ({ brokerKey: b.broker_key, status: b.status, balance: Number(b.balance || 0), accountType: b.account_type || null, baseCurrency: b.base_currency || null, hasMaskedEmail: Boolean(b.credential_email_masked || b.email), workerAuthReady: Boolean(b.worker_auth_ready), authMode: b.auth_mode || 'none' })), settingsKeys: Object.keys(settingsResult.data?.config || {}), settingsAccountType: (settingsResult.data?.config || {})?.accountType || null }, ts: Date.now() }) }).catch(() => {});
   // #endregion
 
   return {

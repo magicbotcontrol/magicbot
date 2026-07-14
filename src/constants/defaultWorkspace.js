@@ -8,6 +8,9 @@ export const DEFAULT_SETTINGS_CONFIG = {
   payoutOption: 'Highest Payout',
   minimumPayout: '80',
   delayMode: 'Automatic',
+  executionMode: 'Assisted',
+  preExecutionLeadSeconds: '10',
+  browserAlertsEnabled: true,
   stopMode: 'Value',
   stopWin: '10',
   stopLoss: '40',
@@ -39,18 +42,18 @@ export const DEFAULT_SETTINGS_CONFIG = {
 };
 
 export const DEFAULT_BROKERS = [
-  { id: 'iqoption', name: 'IQ Option', logoColor: '#FF6B00', status: 'Linked', email: '', balance: 10450, baseCurrency: 'USD', accountType: 'Demo' },
-  { id: 'quotex', name: 'Quotex', logoColor: '#00E676', status: 'Unlinked', email: '', balance: 0, baseCurrency: 'USD', accountType: 'Demo' },
-  { id: 'pocketoption', name: 'Pocket Option', logoColor: '#29B6F6', status: 'Unlinked', email: '', balance: 0, baseCurrency: 'USD', accountType: 'Demo' },
-  { id: 'exnova', name: 'Exnova', logoColor: '#8E24AA', status: 'Unlinked', email: '', balance: 0, baseCurrency: 'USD', accountType: 'Demo' },
-  { id: 'bullex', name: 'Bullex', logoColor: '#37474F', status: 'Unlinked', email: '', balance: 0, baseCurrency: 'USD', accountType: 'Demo' },
-  { id: 'broker10', name: 'Broker10', logoColor: '#000000', status: 'Unlinked', email: '', balance: 0, baseCurrency: 'USD', accountType: 'Demo' },
-  { id: 'binomo', name: 'Binomo', logoColor: '#111827', status: 'Unlinked', email: '', balance: 0, baseCurrency: 'USD', accountType: 'Demo' },
-  { id: 'olymptrade', name: 'Olymp Trade', logoColor: '#10B981', status: 'Unlinked', email: '', balance: 0, baseCurrency: 'USD', accountType: 'Demo' },
-  { id: 'binolla', name: 'Binolla', logoColor: '#2563EB', status: 'Unlinked', email: '', balance: 0, baseCurrency: 'USD', accountType: 'Demo' },
-  { id: 'avalon', name: 'Avalon', logoColor: '#14B8A6', status: 'Unlinked', email: '', balance: 0, baseCurrency: 'USD', accountType: 'Demo' },
-  { id: 'homebroker', name: 'HomeBroker', logoColor: '#6366F1', status: 'Unlinked', email: '', balance: 0, baseCurrency: 'USD', accountType: 'Demo' },
-  { id: 'casatrade', name: 'CasaTrade', logoColor: '#0F172A', status: 'Unlinked', email: '', balance: 0, baseCurrency: 'USD', accountType: 'Demo' }
+  { id: 'iqoption', name: 'IQ Option', logoColor: '#FF6B00', status: 'Linked', email: '', emailMasked: 'i***@broker.com', authMode: 'email_password', workerAuthReady: true, credentialReference: 'private.broker_credentials', balance: 10450, baseCurrency: 'USD', accountType: 'Demo' },
+  { id: 'quotex', name: 'Quotex', logoColor: '#00E676', status: 'Unlinked', email: '', emailMasked: '', authMode: 'none', workerAuthReady: false, credentialReference: '', balance: 0, baseCurrency: 'USD', accountType: 'Demo' },
+  { id: 'pocketoption', name: 'Pocket Option', logoColor: '#29B6F6', status: 'Unlinked', email: '', emailMasked: '', authMode: 'none', workerAuthReady: false, credentialReference: '', balance: 0, baseCurrency: 'USD', accountType: 'Demo' },
+  { id: 'exnova', name: 'Exnova', logoColor: '#8E24AA', status: 'Unlinked', email: '', emailMasked: '', authMode: 'none', workerAuthReady: false, credentialReference: '', balance: 0, baseCurrency: 'USD', accountType: 'Demo' },
+  { id: 'bullex', name: 'Bullex', logoColor: '#37474F', status: 'Unlinked', email: '', emailMasked: '', authMode: 'none', workerAuthReady: false, credentialReference: '', balance: 0, baseCurrency: 'USD', accountType: 'Demo' },
+  { id: 'broker10', name: 'Broker10', logoColor: '#000000', status: 'Unlinked', email: '', emailMasked: '', authMode: 'none', workerAuthReady: false, credentialReference: '', balance: 0, baseCurrency: 'USD', accountType: 'Demo' },
+  { id: 'binomo', name: 'Binomo', logoColor: '#111827', status: 'Unlinked', email: '', emailMasked: '', authMode: 'none', workerAuthReady: false, credentialReference: '', balance: 0, baseCurrency: 'USD', accountType: 'Demo' },
+  { id: 'olymptrade', name: 'Olymp Trade', logoColor: '#10B981', status: 'Unlinked', email: '', emailMasked: '', authMode: 'none', workerAuthReady: false, credentialReference: '', balance: 0, baseCurrency: 'USD', accountType: 'Demo' },
+  { id: 'binolla', name: 'Binolla', logoColor: '#2563EB', status: 'Unlinked', email: '', emailMasked: '', authMode: 'none', workerAuthReady: false, credentialReference: '', balance: 0, baseCurrency: 'USD', accountType: 'Demo' },
+  { id: 'avalon', name: 'Avalon', logoColor: '#14B8A6', status: 'Unlinked', email: '', emailMasked: '', authMode: 'none', workerAuthReady: false, credentialReference: '', balance: 0, baseCurrency: 'USD', accountType: 'Demo' },
+  { id: 'homebroker', name: 'HomeBroker', logoColor: '#6366F1', status: 'Unlinked', email: '', emailMasked: '', authMode: 'none', workerAuthReady: false, credentialReference: '', balance: 0, baseCurrency: 'USD', accountType: 'Demo' },
+  { id: 'casatrade', name: 'CasaTrade', logoColor: '#0F172A', status: 'Unlinked', email: '', emailMasked: '', authMode: 'none', workerAuthReady: false, credentialReference: '', balance: 0, baseCurrency: 'USD', accountType: 'Demo' }
 ];
 
 export const DEFAULT_SIGNALS_DATE = '2026-05-28';

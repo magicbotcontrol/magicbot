@@ -2,11 +2,49 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getSignalsByDate, saveSignalList } from '../services/supabaseSignals';
 import { getDailySignalFeed, listDailySignalFeedsByDate } from '../services/supabaseSignalFeed';
 import { listWorkspaceSignalExclusions, setWorkspaceSignalIgnored } from '../services/supabaseSignalExclusions';
-import { clearExpiredTradeJobs, enqueueTradeJobs, ensureBotInstances, getTradeJobsSummary, listBotInstances, listTradeJobEvents, listTradeJobs, requeueFailedTradeJobs, stopWorkspaceBot, updateBotInstanceTolerance } from '../services/supabaseTradeJobs';
+import { clearExpiredTradeJobs, createAutomationCommand, enqueueTradeJobs, ensureBotInstances, getAutomationWorkerNode, getTradeJobsSummary, listAutomationCommands, listBotInstances, listTradeJobAttempts, listTradeJobEvents, listTradeJobs, requeueFailedTradeJobs, stopWorkspaceBot, updateBotInstanceExecutionConfig, updateBotInstanceTolerance } from '../services/supabaseTradeJobs';
 import { getWorkspaceBootstrap, updateWorkspaceRuntime } from '../services/supabaseWorkspace';
 import { parseSignalsText } from '../utils/signalParser';
 
-export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, hasDailyListAccess, t, showToast, playAlertSound, setActiveTab, entryValue }) {
+function buildScheduledAt(selectedDate, timeText) {
+  const raw = String(timeText || '').trim();
+  if (!selectedDate || !/^\d{2}:\d{2}$/.test(raw)) return null;
+  const iso = `${selectedDate}T${raw}:00`;
+  const scheduledAt = new Date(iso);
+  if (Number.isNaN(scheduledAt.getTime())) return null;
+  return scheduledAt;
+}
+
+function describeRuntimeStatus(status, secondsToSignal) {
+  switch (status) {
+    case 'queued':
+      return 'Enfileirada';
+    case 'ready':
+      return secondsToSignal > 0 ? `Prepara em ${secondsToSignal}s` : 'Janela aberta para executar';
+    case 'manual_opened':
+      return 'Corretora aberta';
+    case 'manual_executed':
+      return 'Executada manualmente';
+    case 'manual_failed':
+      return 'Falha manual registrada';
+    case 'simulated_executed':
+      return 'Executada em simulacao';
+    case 'expired':
+      return 'Expirada';
+    case 'reference':
+      return 'Referencia manual';
+    case 'ignored':
+      return 'Ignorada';
+    case 'invalid':
+      return 'Invalida';
+    case 'paused':
+      return 'Fila pausada';
+    default:
+      return 'Aguardando';
+  }
+}
+
+export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, hasDailyListAccess, t, showToast, playAlertSound, setActiveTab, entryValue, executionMode, preExecutionLeadSeconds, browserAlertsEnabled }) {
   const initialDate = new Date().toLocaleDateString('en-CA');
   const [botStatus, setBotStatus] = useState('offline');
   const [botSlot, setBotSlot] = useState(1);
@@ -37,10 +75,86 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
   const [isBotQueueLoading, setIsBotQueueLoading] = useState(false);
   const [botDayJobs, setBotDayJobs] = useState([]);
   const [isBotDayJobsLoading, setIsBotDayJobsLoading] = useState(false);
+  const [workerNode, setWorkerNode] = useState(null);
+  const [workerCommands, setWorkerCommands] = useState([]);
+  const [workerAttempts, setWorkerAttempts] = useState([]);
+  const [isWorkerRuntimeLoading, setIsWorkerRuntimeLoading] = useState(false);
+  const [isWorkerBlueprintAvailable, setIsWorkerBlueprintAvailable] = useState(false);
+  const [workerCommandPendingType, setWorkerCommandPendingType] = useState('');
   const [isBotActionLoading, setIsBotActionLoading] = useState(false);
   const [botToleranceSeconds, setBotToleranceSeconds] = useState(5);
   const [isBotToleranceSaving, setIsBotToleranceSaving] = useState(false);
+  const [botExecutionAccountType, setBotExecutionAccountType] = useState('Demo');
+  const [botDefaultOrderAmountInput, setBotDefaultOrderAmountInput] = useState('2');
+  const [isBotExecutionConfigSaving, setIsBotExecutionConfigSaving] = useState(false);
   const [isBotStatusSyncing, setIsBotStatusSyncing] = useState(false);
+  const [runtimeNow, setRuntimeNow] = useState(Date.now());
+  const [signalExecutionState, setSignalExecutionState] = useState({});
+  const [runtimeTimeline, setRuntimeTimeline] = useState([]);
+  const [signalAccountTypeOverrides, setSignalAccountTypeOverrides] = useState({});
+  const [signalAmountOverrides, setSignalAmountOverrides] = useState({});
+  const signalExecutionFlagsRef = useRef({});
+  const executionModeKey = String(executionMode || 'Assisted').toLowerCase();
+  const isSimulationMode = executionModeKey.includes('sim');
+  const leadWindowSeconds = Number(preExecutionLeadSeconds) === 15 ? 15 : 10;
+  const runtimeStorageKey = workspaceId ? `magicbot_autotrader_runtime_${workspaceId}_${selectedDate}` : null;
+  const selectedBotInstance = useMemo(
+    () => (botInstances || []).find((item) => Number(item.slot) === Number(botSlot)) || null,
+    [botInstances, botSlot]
+  );
+
+  const appendRuntimeEvent = useCallback((type, signal, extra = {}) => {
+    const entry = {
+      id: `${type}_${signal?.signalKey || 'system'}_${Date.now()}`,
+      type,
+      signalKey: signal?.signalKey || null,
+      asset: signal?.asset || extra.asset || '',
+      timeframe: signal?.timeframe || extra.timeframe || '',
+      timeText: signal?.timeOrRate || extra.timeText || '',
+      action: signal?.action || extra.action || '',
+      createdAt: new Date().toISOString(),
+      note: extra.note || ''
+    };
+    setRuntimeTimeline((prev) => [entry, ...prev].slice(0, 80));
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => setRuntimeNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!runtimeStorageKey || typeof window === 'undefined') {
+      setRuntimeTimeline([]);
+      return undefined;
+    }
+    try {
+      const stored = window.localStorage.getItem(runtimeStorageKey);
+      setRuntimeTimeline(stored ? JSON.parse(stored) : []);
+    } catch {
+      setRuntimeTimeline([]);
+    }
+    return undefined;
+  }, [runtimeStorageKey]);
+
+  useEffect(() => {
+    if (!runtimeStorageKey || typeof window === 'undefined') {
+      return undefined;
+    }
+    try {
+      window.localStorage.setItem(runtimeStorageKey, JSON.stringify(runtimeTimeline));
+    } catch {
+      // Ignore local persistence failures.
+    }
+    return undefined;
+  }, [runtimeStorageKey, runtimeTimeline]);
+
+  useEffect(() => {
+    signalExecutionFlagsRef.current = {};
+    setSignalExecutionState({});
+    setSignalAccountTypeOverrides({});
+    setSignalAmountOverrides({});
+  }, [selectedDate, selectedMarket, selectedAsset, sourceMode]);
 
   const syncBotInstances = useCallback(async ({ withLoading = false, showSyncIndicator = false } = {}) => {
     if (!workspaceId || !isLoggedIn) {
@@ -76,6 +190,13 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
         setBotToleranceSeconds(5);
       }
 
+      setBotExecutionAccountType(slotItem?.account_type === 'Real' ? 'Real' : 'Demo');
+      setBotDefaultOrderAmountInput(
+        Number(slotItem?.default_order_amount) > 0
+          ? String(Number(slotItem.default_order_amount))
+          : String(Number(entryValue || 0) || 2)
+      );
+
       return rows || [];
     } finally {
       if (showSyncIndicator) {
@@ -85,7 +206,7 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
         setIsBotInstancesLoading(false);
       }
     }
-  }, [workspaceId, isLoggedIn, botSlot]);
+  }, [workspaceId, isLoggedIn, botSlot, entryValue]);
 
   useEffect(() => {
     let mounted = true;
@@ -169,6 +290,31 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
       showToast(t.supabaseSaveError);
     } finally {
       setIsBotToleranceSaving(false);
+    }
+  };
+
+  const handleSaveBotExecutionConfig = async () => {
+    if (!workspaceId) return;
+    setIsBotExecutionConfigSaving(true);
+    try {
+      const updated = await updateBotInstanceExecutionConfig({
+        workspaceId,
+        slot: botSlot,
+        accountType: botExecutionAccountType,
+        defaultOrderAmount: botDefaultOrderAmountInput
+      });
+      setBotInstances((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
+      setBotExecutionAccountType(updated?.account_type === 'Real' ? 'Real' : 'Demo');
+      setBotDefaultOrderAmountInput(
+        Number(updated?.default_order_amount) > 0
+          ? String(Number(updated.default_order_amount))
+          : ''
+      );
+      showToast('Configuração operacional do bot salva.');
+    } catch {
+      showToast(t.supabaseSaveError);
+    } finally {
+      setIsBotExecutionConfigSaving(false);
     }
   };
 
@@ -289,14 +435,20 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
       setBotQueueSummary(null);
       setBotRecentEvents([]);
       setIsBotQueueLoading(false);
+      setWorkerNode(null);
+      setWorkerCommands([]);
+      setWorkerAttempts([]);
+      setIsWorkerRuntimeLoading(false);
+      setIsWorkerBlueprintAvailable(false);
       return undefined;
     }
 
     const load = async () => {
       setIsBotQueueLoading(true);
       setIsBotDayJobsLoading(true);
+      setIsWorkerRuntimeLoading(true);
       try {
-        const [summary, events, jobs] = await Promise.all([
+        const [summaryResult, eventsResult, jobsResult, commandsResult, attemptsResult, workerResult] = await Promise.allSettled([
           getTradeJobsSummary({
             workspaceId,
             slot: botSlot,
@@ -312,21 +464,52 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
             marketCode: selectedMarket,
             asset: selectedAsset || 'MIXED',
             limit: 80
-          })
+          }),
+          selectedBotInstance?.id
+            ? listAutomationCommands({ workspaceId, botInstanceId: selectedBotInstance.id, limit: 8 })
+            : Promise.resolve([]),
+          selectedBotInstance?.id
+            ? listTradeJobAttempts({ workspaceId, botInstanceId: selectedBotInstance.id, limit: 10 })
+            : Promise.resolve([]),
+          selectedBotInstance?.assigned_worker_id
+            ? getAutomationWorkerNode(selectedBotInstance.assigned_worker_id)
+            : Promise.resolve(null)
         ]);
         if (!mounted) return;
-        setBotQueueSummary(summary);
-        setBotRecentEvents(events || []);
-        setBotDayJobs(jobs || []);
+        setBotQueueSummary(summaryResult.status === 'fulfilled' ? summaryResult.value : null);
+        setBotRecentEvents(eventsResult.status === 'fulfilled' ? (eventsResult.value || []) : []);
+        setBotDayJobs(jobsResult.status === 'fulfilled' ? (jobsResult.value || []) : []);
+
+        const nextCommands = commandsResult.status === 'fulfilled' ? (commandsResult.value || []) : [];
+        const nextAttempts = attemptsResult.status === 'fulfilled' ? (attemptsResult.value || []) : [];
+        const nextWorker = workerResult.status === 'fulfilled' ? (workerResult.value || null) : null;
+
+        setWorkerCommands(nextCommands);
+        setWorkerAttempts(nextAttempts);
+        setWorkerNode(nextWorker);
+        setIsWorkerBlueprintAvailable(Boolean(
+          nextCommands.length
+          || nextAttempts.length
+          || nextWorker
+          || selectedBotInstance?.assigned_worker_id
+          || selectedBotInstance?.lease_token
+          || selectedBotInstance?.desired_status
+          || selectedBotInstance?.runtime_status
+        ));
       } catch {
         if (!mounted) return;
         setBotQueueSummary(null);
         setBotRecentEvents([]);
         setBotDayJobs([]);
+        setWorkerNode(null);
+        setWorkerCommands([]);
+        setWorkerAttempts([]);
+        setIsWorkerBlueprintAvailable(false);
       } finally {
         if (!mounted) return;
         setIsBotQueueLoading(false);
         setIsBotDayJobsLoading(false);
+        setIsWorkerRuntimeLoading(false);
       }
     };
 
@@ -336,7 +519,7 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
       mounted = false;
       clearInterval(timer);
     };
-  }, [workspaceId, isLoggedIn, botSlot, botStatus, selectedDate, selectedMarket, selectedAsset]);
+  }, [workspaceId, isLoggedIn, botSlot, botStatus, selectedDate, selectedMarket, selectedAsset, selectedBotInstance?.id, selectedBotInstance?.assigned_worker_id, selectedBotInstance?.lease_token, selectedBotInstance?.desired_status, selectedBotInstance?.runtime_status]);
 
   const handleRequeueFailedJobs = async (minMinutesLeft = 0) => {
     if (!workspaceId) return;
@@ -399,6 +582,15 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
   }, [workspaceId, isLoggedIn, sourceMode, hasDailyListAccess, selectedDate, selectedMarket, selectedAsset]);
 
   const parsedSignals = useMemo(() => parseSignalsText(signalsText, t), [signalsText, t]);
+
+  const pushWorkerCommand = useCallback((command) => {
+    if (!command?.id) return;
+    setWorkerCommands((prev) => {
+      const next = [command, ...prev.filter((item) => item.id !== command.id)];
+      return next.slice(0, 8);
+    });
+    setIsWorkerBlueprintAvailable(true);
+  }, []);
   const signalsWithMeta = useMemo(() => (
     parsedSignals.map((signal, index) => {
       const key = `${String(signal.timeframe || '').trim().toUpperCase()}|${String(signal.asset || '').trim().toUpperCase()}|${String(signal.timeOrRate || '').trim()}|${String(signal.action || '').trim().toUpperCase()}`;
@@ -415,6 +607,211 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
   const validCount = signalsWithMeta.filter((signal) => signal.isValid && !signal.isIgnored).length;
   const ignoredCount = signalsWithMeta.filter((signal) => signal.isIgnored).length;
   const executableSignalsCount = signalsWithMeta.filter((signal) => signal.isValid && !signal.isIgnored && signal.isScheduledTime).length;
+  const signalRuntimeRows = useMemo(() => (
+    signalsWithMeta.map((signal) => {
+      const scheduledAt = signal.isScheduledTime ? buildScheduledAt(selectedDate, signal.timeOrRate) : null;
+      const secondsToSignal = scheduledAt ? Math.round((scheduledAt.getTime() - runtimeNow) / 1000) : null;
+      const persisted = signalExecutionState[signal.signalKey];
+      let runtimeStatus = persisted?.status || 'idle';
+
+      if (signal.isIgnored) {
+        runtimeStatus = 'ignored';
+      } else if (!signal.isValid) {
+        runtimeStatus = 'invalid';
+      } else if (!scheduledAt) {
+        runtimeStatus = 'reference';
+      } else if (!persisted?.status) {
+        if (botStatus !== 'running') {
+          runtimeStatus = 'paused';
+        } else if (secondsToSignal > leadWindowSeconds) {
+          runtimeStatus = 'queued';
+        } else if (secondsToSignal >= 0) {
+          runtimeStatus = 'ready';
+        } else if (Math.abs(secondsToSignal) <= Number(botToleranceSeconds || 0)) {
+          runtimeStatus = isSimulationMode ? 'simulated_executed' : 'ready';
+        } else {
+          runtimeStatus = 'expired';
+        }
+      }
+
+      const accountTypeOverride = signalAccountTypeOverrides[signal.signalKey] || '';
+      const effectiveAccountType = accountTypeOverride || botExecutionAccountType || 'Demo';
+      const amountOverrideRaw = signalAmountOverrides[signal.signalKey] || '';
+      const parsedAmountOverride = Number(amountOverrideRaw);
+      const amountOverride = Number.isFinite(parsedAmountOverride) && parsedAmountOverride > 0
+        ? Number(parsedAmountOverride.toFixed(2))
+        : null;
+      const botDefaultAmount = Number(selectedBotInstance?.default_order_amount);
+      const settingsEntryAmount = Number(entryValue || 0);
+      const effectiveAmount = amountOverride
+        || (Number.isFinite(botDefaultAmount) && botDefaultAmount > 0 ? Number(botDefaultAmount.toFixed(2)) : null)
+        || (Number.isFinite(settingsEntryAmount) && settingsEntryAmount > 0 ? Number(settingsEntryAmount.toFixed(2)) : null)
+        || null;
+      const effectiveAmountSource = amountOverride
+        ? 'line'
+        : (Number.isFinite(botDefaultAmount) && botDefaultAmount > 0)
+          ? 'bot'
+          : (Number.isFinite(settingsEntryAmount) && settingsEntryAmount > 0)
+            ? 'global'
+            : 'worker';
+
+      return {
+        ...signal,
+        scheduledAt,
+        scheduledAtIso: scheduledAt ? scheduledAt.toISOString() : null,
+        accountTypeOverride,
+        effectiveAccountType,
+        amountOverride: amountOverrideRaw,
+        effectiveAmount,
+        effectiveAmountSource,
+        secondsToSignal,
+        runtimeStatus,
+        runtimeLabel: describeRuntimeStatus(runtimeStatus, secondsToSignal)
+      };
+    })
+  ), [signalsWithMeta, selectedDate, runtimeNow, signalExecutionState, botStatus, leadWindowSeconds, botToleranceSeconds, isSimulationMode, signalAccountTypeOverrides, botExecutionAccountType, signalAmountOverrides, selectedBotInstance?.default_order_amount, entryValue]);
+
+  const nextExecutionSignal = useMemo(() => {
+    const candidates = signalRuntimeRows
+      .filter((signal) => signal.isValid && !signal.isIgnored && signal.scheduledAt)
+      .filter((signal) => !['manual_executed', 'manual_failed', 'simulated_executed', 'expired'].includes(signal.runtimeStatus))
+      .sort((a, b) => (a.scheduledAt?.getTime() || 0) - (b.scheduledAt?.getTime() || 0));
+
+    const future = candidates.find((signal) => (signal.secondsToSignal ?? Number.MAX_SAFE_INTEGER) >= -Number(botToleranceSeconds || 0));
+    return future || candidates[0] || null;
+  }, [signalRuntimeRows, botToleranceSeconds]);
+
+  const timelineCounts = useMemo(() => ({
+    manualExecuted: runtimeTimeline.filter((entry) => entry.type === 'manual_executed').length,
+    manualFailed: runtimeTimeline.filter((entry) => entry.type === 'manual_failed').length,
+    simulated: runtimeTimeline.filter((entry) => entry.type === 'simulated_executed').length,
+    expired: runtimeTimeline.filter((entry) => entry.type === 'expired').length
+  }), [runtimeTimeline]);
+
+  const notifySignalWindow = useCallback((signal, secondsToSignal) => {
+    playAlertSound(secondsToSignal > 3 ? 880 : 660, 0.25);
+    if (!browserAlertsEnabled || typeof window === 'undefined' || typeof Notification === 'undefined') {
+      return;
+    }
+    const title = secondsToSignal > 0 ? 'Sinal quase na hora' : 'Janela de execucao aberta';
+    const body = `${signal.asset} ${signal.timeframe} ${signal.timeOrRate} ${signal.action}`;
+    if (Notification.permission === 'granted') {
+      new Notification(title, { body });
+      return;
+    }
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().then((permission) => {
+        if (permission === 'granted') {
+          new Notification(title, { body });
+        }
+      }).catch(() => {});
+    }
+  }, [browserAlertsEnabled, playAlertSound]);
+
+  useEffect(() => {
+    if (botStatus !== 'running') {
+      return undefined;
+    }
+
+    const toleranceWindow = Number(botToleranceSeconds || 0);
+    const updates = {};
+
+    signalRuntimeRows.forEach((signal) => {
+      if (!signal.scheduledAt || !signal.isValid || signal.isIgnored) return;
+      if (['manual_executed', 'manual_failed', 'simulated_executed', 'expired'].includes(signal.runtimeStatus)) return;
+
+      const flags = signalExecutionFlagsRef.current[signal.signalKey] || {};
+
+      if (!flags.ready && signal.secondsToSignal <= leadWindowSeconds && signal.secondsToSignal >= 0) {
+        flags.ready = true;
+        signalExecutionFlagsRef.current[signal.signalKey] = flags;
+        updates[signal.signalKey] = { status: 'ready', updatedAt: new Date().toISOString() };
+        appendRuntimeEvent('ready', signal, { note: `Janela de alerta aberta com ${Math.max(signal.secondsToSignal, 0)}s restantes.` });
+        notifySignalWindow(signal, signal.secondsToSignal);
+      }
+
+      if (isSimulationMode && !flags.simulated && signal.secondsToSignal < 0 && Math.abs(signal.secondsToSignal) <= toleranceWindow) {
+        flags.simulated = true;
+        signalExecutionFlagsRef.current[signal.signalKey] = flags;
+        updates[signal.signalKey] = { status: 'simulated_executed', updatedAt: new Date().toISOString() };
+        appendRuntimeEvent('simulated_executed', signal, { note: 'Execucao registrada em modo simulacao.' });
+      }
+
+      if (!flags.expired && signal.secondsToSignal < -toleranceWindow) {
+        flags.expired = true;
+        signalExecutionFlagsRef.current[signal.signalKey] = flags;
+        updates[signal.signalKey] = { status: 'expired', updatedAt: new Date().toISOString() };
+        appendRuntimeEvent('expired', signal, { note: 'Janela ultrapassada sem confirmacao de execucao.' });
+      }
+    });
+
+    if (Object.keys(updates).length > 0) {
+      setSignalExecutionState((prev) => ({ ...prev, ...updates }));
+    }
+
+    return undefined;
+  }, [botStatus, signalRuntimeRows, leadWindowSeconds, botToleranceSeconds, isSimulationMode, appendRuntimeEvent, notifySignalWindow]);
+
+  const handleSignalBrokerOpen = useCallback((signal) => {
+    if (!signal?.signalKey) return;
+    setSignalExecutionState((prev) => ({
+      ...prev,
+      [signal.signalKey]: { status: 'manual_opened', updatedAt: new Date().toISOString() }
+    }));
+    appendRuntimeEvent('manual_opened', signal, { note: 'Corretora aberta para conferencia assistida.' });
+  }, [appendRuntimeEvent]);
+
+  const handleSignalManualResult = useCallback((signal, outcome = 'manual_executed') => {
+    if (!signal?.signalKey) return;
+    const nextStatus = outcome === 'manual_failed' ? 'manual_failed' : 'manual_executed';
+    setSignalExecutionState((prev) => ({
+      ...prev,
+      [signal.signalKey]: { status: nextStatus, updatedAt: new Date().toISOString() }
+    }));
+    appendRuntimeEvent(nextStatus, signal, {
+      note: nextStatus === 'manual_failed'
+        ? 'Falha registrada manualmente pelo operador.'
+        : 'Execucao manual confirmada pelo operador.'
+    });
+  }, [appendRuntimeEvent]);
+
+  const clearRuntimeTimeline = useCallback(() => {
+    setRuntimeTimeline([]);
+  }, []);
+
+  const setSignalAccountTypeOverride = useCallback((signalKey, accountType) => {
+    const normalizedKey = String(signalKey || '').trim();
+    if (!normalizedKey) return;
+    const normalizedValue = accountType === 'Real' || accountType === 'Demo' ? accountType : '';
+    setSignalAccountTypeOverrides((prev) => ({
+      ...prev,
+      [normalizedKey]: normalizedValue
+    }));
+  }, []);
+
+  const setSignalAmountOverride = useCallback((signalKey, amount) => {
+    const normalizedKey = String(signalKey || '').trim();
+    if (!normalizedKey) return;
+
+    const rawValue = String(amount ?? '').replace(',', '.').trim();
+    if (!rawValue) {
+      setSignalAmountOverrides((prev) => ({
+        ...prev,
+        [normalizedKey]: ''
+      }));
+      return;
+    }
+
+    const parsed = Number(rawValue);
+    const normalizedValue = Number.isFinite(parsed) && parsed > 0
+      ? parsed.toFixed(2)
+      : rawValue;
+
+    setSignalAmountOverrides((prev) => ({
+      ...prev,
+      [normalizedKey]: normalizedValue
+    }));
+  }, []);
 
   const canStartBot = Boolean(hasAutomatorAccess) && (
     Boolean(signalsText.trim())
@@ -457,19 +854,41 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
       if (nextStatus === 'running') {
         const jobs = signalsWithMeta
           .filter((s) => s.isValid && !s.isIgnored && s.isScheduledTime)
-          .map((s) => ({
-            signal_key: s.signalKey,
-            line_number: s.lineNumber,
-            timeframe: s.timeframe,
-            time_text: String(s.timeOrRate || '').trim(),
-            action: s.action,
-            entry_amount: Number(entryValue || 0) || 0
-          }));
+          .map((s) => {
+            const rawAmountOverride = signalAmountOverrides[s.signalKey];
+            const parsedAmountOverride = Number(rawAmountOverride);
+            const hasLineAmountOverride = Number.isFinite(parsedAmountOverride) && parsedAmountOverride > 0;
+
+            return {
+              signal_key: s.signalKey,
+              line_number: s.lineNumber,
+              timeframe: s.timeframe,
+              time_text: String(s.timeOrRate || '').trim(),
+              action: s.action,
+              entry_amount: hasLineAmountOverride
+                ? Number(parsedAmountOverride.toFixed(2))
+                : (Number(selectedBotInstance?.default_order_amount) > 0 ? 0 : (Number(entryValue || 0) || 0)),
+              ...(signalAccountTypeOverrides[s.signalKey]
+                ? { account_type_override: signalAccountTypeOverrides[s.signalKey] }
+                : {})
+            };
+          });
 
         if (!jobs.length) {
           showToast(t.addValidSignals);
           return;
         }
+
+        const nextExecutionState = {};
+        signalExecutionFlagsRef.current = {};
+        signalsWithMeta
+          .filter((s) => s.isValid && !s.isIgnored && s.isScheduledTime)
+          .forEach((signal) => {
+            nextExecutionState[signal.signalKey] = { status: 'queued', updatedAt: new Date().toISOString() };
+            signalExecutionFlagsRef.current[signal.signalKey] = { enqueued: true };
+            appendRuntimeEvent('queued', signal, { note: 'Sinal enviado para a fila operacional.' });
+          });
+        setSignalExecutionState(nextExecutionState);
 
         await enqueueTradeJobs({
           workspaceId,
@@ -484,6 +903,28 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
         await updateWorkspaceRuntime(workspaceId, 'running');
         setBotStatus('running');
         setBotInstances((prev) => prev.map((b) => (Number(b.slot) === Number(botSlot) ? { ...b, status: 'running' } : b)));
+        const startCommand = await createAutomationCommand({
+          workspaceId,
+          botInstanceId: selectedBotInstance?.id || null,
+          commandType: 'start_bot',
+          payload: {
+            slot: Number(botSlot),
+            source_mode: sourceMode,
+            list_date: selectedDate,
+            market_code: selectedMarket,
+            asset: selectedAsset || 'MIXED',
+            jobs_count: jobs.length,
+            execution_mode: executionModeKey,
+            lead_seconds: leadWindowSeconds,
+            tolerance_seconds: Number(botToleranceSeconds || 0),
+            entry_value: Number(entryValue || 0) || 0,
+            bot_default_order_amount: Number(selectedBotInstance?.default_order_amount || 0) || null,
+            bot_account_type: selectedBotInstance?.account_type || botExecutionAccountType,
+            job_account_type_overrides: jobs.filter((job) => job.account_type_override).length,
+            job_amount_overrides: jobs.filter((job) => Number(job.entry_amount || 0) > 0).length
+          }
+        });
+        pushWorkerCommand(startCommand);
         await syncBotInstances({ showSyncIndicator: true });
         playAlertSound(880, 0.3);
         showToast(t.botRunningToast);
@@ -495,6 +936,16 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
         }
         setBotStatus('offline');
         setBotInstances((prev) => prev.map((b) => (Number(b.slot) === Number(botSlot) ? { ...b, status: 'offline' } : b)));
+        const stopCommand = await createAutomationCommand({
+          workspaceId,
+          botInstanceId: selectedBotInstance?.id || null,
+          commandType: 'stop_bot',
+          payload: {
+            slot: Number(botSlot),
+            reason: 'ui_toggle_stop'
+          }
+        });
+        pushWorkerCommand(stopCommand);
         await syncBotInstances({ showSyncIndicator: true });
         playAlertSound(440, 0.3);
         showToast(t.botPausedToast);
@@ -505,6 +956,52 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
       setIsBotStatusSyncing(false);
     }
   };
+
+  const queueBotCommand = useCallback(async (commandType, payload = {}) => {
+    if (!workspaceId || !selectedBotInstance?.id) {
+      showToast(t.supabaseConnectionError);
+      return null;
+    }
+
+    setWorkerCommandPendingType(commandType);
+    try {
+      const command = await createAutomationCommand({
+        workspaceId,
+        botInstanceId: selectedBotInstance.id,
+        commandType,
+        payload: {
+          slot: Number(botSlot),
+          ...payload
+        }
+      });
+      pushWorkerCommand(command);
+      await syncBotInstances({ showSyncIndicator: commandType === 'force_release_lease' });
+      return command;
+    } catch {
+      showToast(t.supabaseSaveError);
+      return null;
+    } finally {
+      setWorkerCommandPendingType('');
+    }
+  }, [workspaceId, selectedBotInstance?.id, botSlot, pushWorkerCommand, showToast, syncBotInstances, t.supabaseConnectionError, t.supabaseSaveError]);
+
+  const handleRefreshRuntime = useCallback(async () => {
+    const command = await queueBotCommand('refresh_runtime', { reason: 'ui_refresh_runtime' });
+    if (command) {
+      showToast('Comando de refresh do runtime enviado ao worker.');
+    }
+  }, [queueBotCommand, showToast]);
+
+  const handleForceReleaseLease = useCallback(async () => {
+    const command = await queueBotCommand('force_release_lease', {
+      assigned_worker_id: selectedBotInstance?.assigned_worker_id || null,
+      lease_token: selectedBotInstance?.lease_token || null,
+      reason: 'ui_force_release'
+    });
+    if (command) {
+      showToast('Comando de liberação forçada do lease enviado.');
+    }
+  }, [queueBotCommand, selectedBotInstance?.assigned_worker_id, selectedBotInstance?.lease_token, showToast]);
 
   const handleSaveSignals = async () => {
     if (!canUseSignals) {
@@ -675,9 +1172,16 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
     botSlot,
     setBotSlot,
     botInstances,
+    selectedBotInstance,
     isBotInstancesLoading,
     botToleranceSeconds,
     isBotToleranceSaving,
+    botExecutionAccountType,
+    setBotExecutionAccountType,
+    botDefaultOrderAmountInput,
+    setBotDefaultOrderAmountInput,
+    isBotExecutionConfigSaving,
+    handleSaveBotExecutionConfig,
     isBotStatusSyncing,
     setBotToleranceSeconds: handleSetBotToleranceSeconds,
     botQueueSummary,
@@ -685,7 +1189,15 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
     isBotQueueLoading,
     botDayJobs,
     isBotDayJobsLoading,
+    workerNode,
+    workerCommands,
+    workerAttempts,
+    isWorkerRuntimeLoading,
+    isWorkerBlueprintAvailable,
+    workerCommandPendingType,
     isBotActionLoading,
+    handleRefreshRuntime,
+    handleForceReleaseLease,
     handleRequeueFailedJobs,
     handleClearExpiredJobs,
     signalsText,
@@ -716,9 +1228,22 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
     isExclusionsSaving,
     toggleSignalIgnored,
     handleStartBot,
+    handleSignalBrokerOpen,
+    handleSignalManualResult,
+    signalAccountTypeOverrides,
+    setSignalAccountTypeOverride,
+    signalAmountOverrides,
+    setSignalAmountOverride,
     handleSaveSignals,
     handleClearSignals,
     handleExport,
-    handleFileUpload
+    handleFileUpload,
+    signalRuntimeRows,
+    nextExecutionSignal,
+    runtimeTimeline,
+    clearRuntimeTimeline,
+    isSimulationMode,
+    leadWindowSeconds,
+    timelineCounts
   };
 }

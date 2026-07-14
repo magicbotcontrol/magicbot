@@ -61,7 +61,10 @@ export default function App() {
     showToast: ui.showToast,
     playAlertSound,
     setActiveTab: ui.setActiveTab,
-    entryValue: settings.config.entryValue
+    entryValue: settings.config.entryValue,
+    executionMode: settings.config.executionMode,
+    preExecutionLeadSeconds: settings.config.preExecutionLeadSeconds,
+    browserAlertsEnabled: settings.config.browserAlertsEnabled
   });
 
   const isSignalsOnly = !session.isAdmin && !signalsEntitlement.isSignalsAutomatorActive && signalsEntitlement.isSignalsDailyListActive;
@@ -129,7 +132,8 @@ export default function App() {
     const brokerName = settings.config.broker;
     const brokerKey = broker.brokersList.find((item) => item.name === brokerName)?.id || null;
     const brokerItem = brokerKey ? broker.brokersList.find((item) => item.id === brokerKey) : null;
-    const accountTypeLabel = settings.config.accountType === 'Real' ? 'LIVE/REAL' : 'DEMO';
+    const effectiveAccountType = signal?.effectiveAccountType === 'Real' ? 'Real' : settings.config.accountType;
+    const accountTypeLabel = effectiveAccountType === 'Real' ? 'LIVE/REAL' : 'DEMO';
 
     if (!brokerItem || brokerItem.status !== 'Linked') {
       ui.showToast(`Vincule a corretora "${brokerName}" antes de abrir sinais (${accountTypeLabel}).`);
@@ -144,7 +148,9 @@ export default function App() {
     }
 
     window.open(url, '_blank', 'noopener,noreferrer');
-    ui.showToast(`Abra a conta ${accountTypeLabel} na corretora e execute: ${signal.asset} ${signal.timeframe} ${signal.timeOrRate} ${signal.action}.`);
+    signals.handleSignalBrokerOpen?.(signal);
+    const amountLabel = signal?.effectiveAmount ? ` com valor ${Number(signal.effectiveAmount).toFixed(2)}` : '';
+    ui.showToast(`A corretora foi aberta em modo assistido. Confirme manualmente: ${signal.asset} ${signal.timeframe} ${signal.timeOrRate} ${signal.action} na conta ${accountTypeLabel}${amountLabel}.`);
   };
 
   const renderActiveTab = () => {
@@ -180,17 +186,32 @@ export default function App() {
             botStatus={signals.botStatus}
             botSlot={signals.botSlot}
             setBotSlot={signals.setBotSlot}
+            selectedBotInstance={signals.selectedBotInstance}
             isBotInstancesLoading={signals.isBotInstancesLoading}
             botToleranceSeconds={signals.botToleranceSeconds}
             setBotToleranceSeconds={signals.setBotToleranceSeconds}
             isBotToleranceSaving={signals.isBotToleranceSaving}
+            botExecutionAccountType={signals.botExecutionAccountType}
+            setBotExecutionAccountType={signals.setBotExecutionAccountType}
+            botDefaultOrderAmountInput={signals.botDefaultOrderAmountInput}
+            setBotDefaultOrderAmountInput={signals.setBotDefaultOrderAmountInput}
+            isBotExecutionConfigSaving={signals.isBotExecutionConfigSaving}
+            handleSaveBotExecutionConfig={signals.handleSaveBotExecutionConfig}
             isBotStatusSyncing={signals.isBotStatusSyncing}
             botQueueSummary={signals.botQueueSummary}
             botRecentEvents={signals.botRecentEvents}
             isBotQueueLoading={signals.isBotQueueLoading}
             botDayJobs={signals.botDayJobs}
             isBotDayJobsLoading={signals.isBotDayJobsLoading}
+            workerNode={signals.workerNode}
+            workerCommands={signals.workerCommands}
+            workerAttempts={signals.workerAttempts}
+            isWorkerRuntimeLoading={signals.isWorkerRuntimeLoading}
+            isWorkerBlueprintAvailable={signals.isWorkerBlueprintAvailable}
+            workerCommandPendingType={signals.workerCommandPendingType}
             isBotActionLoading={signals.isBotActionLoading}
+            handleRefreshRuntime={signals.handleRefreshRuntime}
+            handleForceReleaseLease={signals.handleForceReleaseLease}
             handleRequeueFailedJobs={signals.handleRequeueFailedJobs}
             handleClearExpiredJobs={signals.handleClearExpiredJobs}
             handleStartBot={signals.handleStartBot}
@@ -225,9 +246,22 @@ export default function App() {
             isSignalsSaving={signals.isSignalsSaving}
             handleOpenInBroker={handleOpenSignalInBroker}
             selectedBrokerName={selectedBrokerName}
+            selectedBrokerItem={selectedBrokerItem}
             selectedAccountType={settings.config.accountType}
             isBrokerLinked={selectedBrokerItem?.status === 'Linked'}
             linkedBrokersCount={linkedBrokersCount}
+            isBrokerExecutionAutomatic={false}
+            executionMode={settings.config.executionMode}
+            leadWindowSeconds={signals.leadWindowSeconds}
+            isSimulationMode={signals.isSimulationMode}
+            nextExecutionSignal={signals.nextExecutionSignal}
+            runtimeTimeline={signals.runtimeTimeline}
+            timelineCounts={signals.timelineCounts}
+            clearRuntimeTimeline={signals.clearRuntimeTimeline}
+            handleSignalManualResult={signals.handleSignalManualResult}
+            signalRuntimeRows={signals.signalRuntimeRows}
+            setSignalAccountTypeOverride={signals.setSignalAccountTypeOverride}
+            setSignalAmountOverride={signals.setSignalAmountOverride}
           />
         );
       case 'live':

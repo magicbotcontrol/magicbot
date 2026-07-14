@@ -34,7 +34,7 @@ export function useBrokerState(workspaceId, showToast, playAlertSound, t) {
   const triggerLinkBroker = (brokerId) => {
     const broker = brokersList.find((item) => item.id === brokerId);
     setActiveBrokerLinking(broker);
-    setBrokerEmailInput(broker.email || '');
+    setBrokerEmailInput('');
     setBrokerPassInput('');
   };
 
@@ -67,6 +67,8 @@ export function useBrokerState(workspaceId, showToast, playAlertSound, t) {
       .then((data) => {
         setBrokersList(data.brokers || []);
         setActiveBrokerLinking(null);
+        setBrokerEmailInput('');
+        setBrokerPassInput('');
         playAlertSound(900, 0.25);
         showToast(t.brokerConnectedSuccess);
       })

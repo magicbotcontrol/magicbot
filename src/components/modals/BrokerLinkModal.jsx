@@ -23,6 +23,11 @@ export function BrokerLinkModal({
         <div className="text-center space-y-1">
           <h3 className="text-base font-extrabold text-gray-900 dark:text-white">{t.secureBrokerTitle} {activeBrokerLinking.name}</h3>
           <p className="text-xs text-gray-400 dark:text-gray-300">{t.secureBrokerSubtitle}</p>
+          {activeBrokerLinking?.emailMasked ? (
+            <p className="text-[11px] text-emerald-600 dark:text-emerald-300">
+              Credencial atual de referência: {activeBrokerLinking.emailMasked}
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-3 pt-3">
@@ -49,6 +54,10 @@ export function BrokerLinkModal({
               required
             />
           </div>
+        </div>
+
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-3 text-[11px] leading-5 text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300">
+          O app envia esse login para a camada segura do backend. A interface passa a mostrar apenas referência mascarada para uso do worker externo.
         </div>
 
         <button type="submit" disabled={isLinkingLoading} className="w-full mt-4 py-3 bg-[#FF6B00] text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center" style={{ backgroundColor: colors.primary }}>

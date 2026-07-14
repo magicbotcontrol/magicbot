@@ -91,6 +91,28 @@ export function AccountTab({
                 )}
               </div>
 
+              <div className="space-y-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-3 text-[11px] text-gray-500 dark:border-[#334155] dark:bg-[#0F172A] dark:text-[#94A3B8]">
+                <div className="flex items-center justify-between gap-3">
+                  <span>Auth mode</span>
+                  <span className="font-bold text-gray-700 dark:text-[#E2E8F0]">{broker.authMode === 'email_password' ? 'Email + senha' : '-'}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span>Referência</span>
+                  <span className="font-bold text-gray-700 dark:text-[#E2E8F0]">{broker.emailMasked || '-'}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span>Worker externo</span>
+                  <span className={`font-bold ${broker.workerAuthReady ? 'text-emerald-600 dark:text-emerald-300' : 'text-gray-400 dark:text-[#64748B]'}`}>
+                    {broker.workerAuthReady ? 'Pronto' : 'Pendente'}
+                  </span>
+                </div>
+                {broker.credentialReference ? (
+                  <div className="text-[10px] text-gray-400 dark:text-[#64748B]">
+                    Ref segura: {broker.credentialReference}
+                  </div>
+                ) : null}
+              </div>
+
               <div>
                 {isLinked ? (
                   <button onClick={() => disconnectBroker(broker.name, broker.id)} className="w-full py-2 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-xs font-bold rounded-xl hover:bg-red-100 dark:hover:bg-red-900 transition-colors">
