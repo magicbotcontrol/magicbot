@@ -19,6 +19,8 @@ function describeRuntimeStatus(status, secondsToSignal) {
   switch (status) {
     case 'queued':
       return 'Enfileirada';
+    case 'executing':
+      return 'Executando em simulacao';
     case 'ready':
       return secondsToSignal > 0 ? `Prepara em ${secondsToSignal}s` : 'Janela aberta para executar';
     case 'manual_opened':
@@ -60,7 +62,7 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
   const canEditSignals = Boolean(hasAutomatorAccess);
   const canUseSignals = Boolean(hasAutomatorAccess);
   const sourceTouchedRef = useRef(false);
-  const [sourceMode, setSourceModeState] = useState(() => (hasDailyListAccess ? 'published' : 'workspace'));
+  const [sourceMode, setSourceModeState] = useState('workspace');
   const [selectedMarket, setSelectedMarket] = useState('ob');
   const [availableFeeds, setAvailableFeeds] = useState([]);
   const [selectedAsset, setSelectedAsset] = useState('');
@@ -95,13 +97,92 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
   const [signalAmountOverrides, setSignalAmountOverrides] = useState({});
   const signalExecutionFlagsRef = useRef({});
   const executionModeKey = String(executionMode || 'Assisted').toLowerCase();
-  const isSimulationMode = executionModeKey.includes('sim');
   const leadWindowSeconds = Number(preExecutionLeadSeconds) === 15 ? 15 : 10;
   const runtimeStorageKey = workspaceId ? `magicbot_autotrader_runtime_${workspaceId}_${selectedDate}` : null;
+  const brokerSessionQaStorageKey = workspaceId ? `magicbot_broker_session_qa_${workspaceId}_${botSlot}` : null;
   const selectedBotInstance = useMemo(
     () => (botInstances || []).find((item) => Number(item.slot) === Number(botSlot)) || null,
     [botInstances, botSlot]
   );
+  const [brokerSessionQaState, setBrokerSessionQaState] = useState('');
+  const workerAdapterKey = String(
+    selectedBotInstance?.last_sync_payload?.broker_adapter
+    || selectedBotInstance?.last_sync_payload?.execution_mode
+    || workerNode?.capabilities?.adapter
+    || ''
+  ).toLowerCase();
+  const isSimulationMode = executionModeKey.includes('sim') || workerAdapterKey === 'paper';
+  const brokerSession = useMemo(() => {
+    const base = selectedBotInstance?.last_sync_payload?.broker_session || null;
+    const qaState = String(brokerSessionQaState || '').trim().toLowerCase();
+
+    if (!qaState) {
+      return base;
+    }
+
+    const qaMeta = qaState === 'session_connected'
+      ? {
+        label: 'Sessao conectada',
+        hint: 'Override QA/dev: sessao operacional conectada.',
+        connected_at: new Date().toISOString()
+      }
+      : qaState === 'session_login_failed'
+        ? {
+          label: 'Falha no login',
+          hint: 'Override QA/dev: falha de login simulada.',
+          failed_at: new Date().toISOString(),
+          last_error: 'qa_override_invalid_credentials'
+        }
+        : {
+          label: 'Credencial pronta',
+          hint: 'Override QA/dev: aguardando reconexao da sessao.'
+        };
+
+    return {
+      ...(base || {}),
+      state: qaState,
+      checked_at: new Date().toISOString(),
+      qa_override: true,
+      ...qaMeta
+    };
+  }, [selectedBotInstance?.last_sync_payload?.broker_session, brokerSessionQaState]);
+  const brokerSessionState = String(brokerSession?.state || '').toLowerCase();
+  const isBrokerSessionConnected = brokerSessionState === 'session_connected';
+  const isBrokerSessionQaEnabled = Boolean(import.meta.env.DEV);
+
+  useEffect(() => {
+    if (!isBrokerSessionQaEnabled || !brokerSessionQaStorageKey || typeof window === 'undefined') {
+      setBrokerSessionQaState('');
+      return undefined;
+    }
+
+    try {
+      const stored = window.localStorage.getItem(brokerSessionQaStorageKey) || '';
+      setBrokerSessionQaState(stored);
+    } catch {
+      setBrokerSessionQaState('');
+    }
+
+    return undefined;
+  }, [isBrokerSessionQaEnabled, brokerSessionQaStorageKey]);
+
+  useEffect(() => {
+    if (!isBrokerSessionQaEnabled || !brokerSessionQaStorageKey || typeof window === 'undefined') {
+      return undefined;
+    }
+
+    try {
+      if (brokerSessionQaState) {
+        window.localStorage.setItem(brokerSessionQaStorageKey, brokerSessionQaState);
+      } else {
+        window.localStorage.removeItem(brokerSessionQaStorageKey);
+      }
+    } catch {
+      // Ignore local persistence failures.
+    }
+
+    return undefined;
+  }, [isBrokerSessionQaEnabled, brokerSessionQaStorageKey, brokerSessionQaState]);
 
   const appendRuntimeEvent = useCallback((type, signal, extra = {}) => {
     const entry = {
@@ -231,7 +312,7 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
         setWorkspaceLiveOperations(signalsData.liveOperations || []);
 
         if (!sourceTouchedRef.current) {
-          const nextSource = hasDailyListAccess ? 'published' : 'workspace';
+          const nextSource = hasDailyListAccess && !hasList ? 'published' : 'workspace';
           setSourceModeState(nextSource);
         }
       })
@@ -607,11 +688,31 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
   const validCount = signalsWithMeta.filter((signal) => signal.isValid && !signal.isIgnored).length;
   const ignoredCount = signalsWithMeta.filter((signal) => signal.isIgnored).length;
   const executableSignalsCount = signalsWithMeta.filter((signal) => signal.isValid && !signal.isIgnored && signal.isScheduledTime).length;
+  const latestJobBySignalKey = useMemo(() => {
+    const map = {};
+
+    (botDayJobs || []).forEach((job) => {
+      const key = String(job?.signal_key || '').trim().toUpperCase();
+      if (!key) return;
+
+      const current = map[key];
+      const currentTime = new Date(current?.updated_at || current?.created_at || 0).getTime();
+      const nextTime = new Date(job?.updated_at || job?.created_at || 0).getTime();
+
+      if (!current || nextTime >= currentTime) {
+        map[key] = job;
+      }
+    });
+
+    return map;
+  }, [botDayJobs]);
+
   const signalRuntimeRows = useMemo(() => (
     signalsWithMeta.map((signal) => {
       const scheduledAt = signal.isScheduledTime ? buildScheduledAt(selectedDate, signal.timeOrRate) : null;
       const secondsToSignal = scheduledAt ? Math.round((scheduledAt.getTime() - runtimeNow) / 1000) : null;
       const persisted = signalExecutionState[signal.signalKey];
+      const latestJob = latestJobBySignalKey[signal.signalKey];
       let runtimeStatus = persisted?.status || 'idle';
 
       if (signal.isIgnored) {
@@ -620,6 +721,25 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
         runtimeStatus = 'invalid';
       } else if (!scheduledAt) {
         runtimeStatus = 'reference';
+      } else if (latestJob?.status === 'executed') {
+        const jobExecutionMode = String(latestJob?.result_payload?.execution_mode || '').toLowerCase();
+        runtimeStatus = jobExecutionMode === 'paper' || isSimulationMode ? 'simulated_executed' : 'manual_executed';
+      } else if (latestJob?.status === 'failed') {
+        runtimeStatus = 'manual_failed';
+      } else if (latestJob?.status === 'expired') {
+        runtimeStatus = 'expired';
+      } else if (latestJob?.status === 'cancelled') {
+        runtimeStatus = 'paused';
+      } else if (latestJob?.status === 'executing') {
+        runtimeStatus = 'executing';
+      } else if (latestJob?.status === 'queued') {
+        if (secondsToSignal > leadWindowSeconds) {
+          runtimeStatus = 'queued';
+        } else if (secondsToSignal >= -Number(botToleranceSeconds || 0)) {
+          runtimeStatus = 'ready';
+        } else {
+          runtimeStatus = isSimulationMode ? 'simulated_executed' : 'expired';
+        }
       } else if (!persisted?.status) {
         if (botStatus !== 'running') {
           runtimeStatus = 'paused';
@@ -669,9 +789,13 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
         runtimeLabel: describeRuntimeStatus(runtimeStatus, secondsToSignal)
       };
     })
-  ), [signalsWithMeta, selectedDate, runtimeNow, signalExecutionState, botStatus, leadWindowSeconds, botToleranceSeconds, isSimulationMode, signalAccountTypeOverrides, botExecutionAccountType, signalAmountOverrides, selectedBotInstance?.default_order_amount, entryValue]);
+  ), [signalsWithMeta, selectedDate, runtimeNow, signalExecutionState, latestJobBySignalKey, botStatus, leadWindowSeconds, botToleranceSeconds, isSimulationMode, signalAccountTypeOverrides, botExecutionAccountType, signalAmountOverrides, selectedBotInstance?.default_order_amount, entryValue]);
 
   const nextExecutionSignal = useMemo(() => {
+    if (botStatus !== 'running') {
+      return null;
+    }
+
     const candidates = signalRuntimeRows
       .filter((signal) => signal.isValid && !signal.isIgnored && signal.scheduledAt)
       .filter((signal) => !['manual_executed', 'manual_failed', 'simulated_executed', 'expired'].includes(signal.runtimeStatus))
@@ -679,7 +803,7 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
 
     const future = candidates.find((signal) => (signal.secondsToSignal ?? Number.MAX_SAFE_INTEGER) >= -Number(botToleranceSeconds || 0));
     return future || candidates[0] || null;
-  }, [signalRuntimeRows, botToleranceSeconds]);
+  }, [botStatus, signalRuntimeRows, botToleranceSeconds]);
 
   const timelineCounts = useMemo(() => ({
     manualExecuted: runtimeTimeline.filter((entry) => entry.type === 'manual_executed').length,
@@ -817,6 +941,7 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
     Boolean(signalsText.trim())
       && executableSignalsCount > 0
       && (sourceMode !== 'published' ? true : Boolean(selectedAsset))
+      && isBrokerSessionConnected
   );
 
   const handleStartBot = async () => {
@@ -826,6 +951,14 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
       if (!hasAutomatorAccess) {
         showToast(t.avisoExpirado);
         setActiveTab('shop');
+        return;
+      }
+
+      if (!isBrokerSessionConnected) {
+        const sessionMessage = brokerSessionState === 'session_login_failed'
+          ? 'Falha no login da corretora. Revise a vinculacao em Minha Conta antes de iniciar o AutoTrader.'
+          : 'A corretora precisa estar conectada antes de iniciar o AutoTrader.';
+        showToast(sessionMessage);
         return;
       }
 
@@ -934,6 +1067,8 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
         } finally {
           await updateWorkspaceRuntime(workspaceId, 'offline');
         }
+        signalExecutionFlagsRef.current = {};
+        setSignalExecutionState({});
         setBotStatus('offline');
         setBotInstances((prev) => prev.map((b) => (Number(b.slot) === Number(botSlot) ? { ...b, status: 'offline' } : b)));
         const stopCommand = await createAutomationCommand({
@@ -1067,6 +1202,13 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
 
   const setSourceMode = (nextMode) => {
     sourceTouchedRef.current = true;
+    if (nextMode === 'workspace') {
+      setSignalsText(workspaceHasList ? workspaceListText : '');
+      setLiveSignals(canEditSignals ? workspaceLiveOperations : []);
+      setIsReadOnly(!canEditSignals);
+    } else {
+      setIsReadOnly(true);
+    }
     setSourceModeState(nextMode);
   };
 
@@ -1081,6 +1223,8 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
     setWorkspaceListText(draft);
     setWorkspaceHasList(Boolean(draft.trim()));
     setWorkspaceLiveOperations([]);
+    setSignalsText(draft);
+    setIsReadOnly(false);
     setSourceModeState('workspace');
   };
 
@@ -1243,6 +1387,12 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
     runtimeTimeline,
     clearRuntimeTimeline,
     isSimulationMode,
+    brokerSession,
+    brokerSessionState,
+    isBrokerSessionConnected,
+    isBrokerSessionQaEnabled,
+    brokerSessionQaState,
+    setBrokerSessionQaState,
     leadWindowSeconds,
     timelineCounts
   };

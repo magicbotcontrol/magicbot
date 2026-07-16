@@ -1,6 +1,43 @@
 import { useEffect, useMemo, useState } from 'react';
 import { buildTimeZoneOptions } from '../../constants/timezones';
 
+function getBrokerSessionMeta(broker) {
+  const state = String(
+    broker?.brokerSession?.state
+      || (broker?.workerAuthReady ? 'credentials_ready' : broker?.status === 'Linked' ? 'linked' : 'unlinked')
+  ).toLowerCase();
+
+  switch (state) {
+    case 'session_connected':
+      return {
+        label: 'Conectada',
+        cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+      };
+    case 'session_login_failed':
+      return {
+        label: 'Falha no login',
+        cls: 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300'
+      };
+    case 'credentials_ready':
+    case 'session_ready':
+    case 'linked':
+      return {
+        label: 'Reconectando',
+        cls: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
+      };
+    case 'adapter_placeholder':
+      return {
+        label: 'Sem sessao',
+        cls: 'bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300'
+      };
+    default:
+      return {
+        label: 'Desvinculada',
+        cls: 'bg-gray-100 text-gray-600 dark:bg-[#111827] dark:text-[#CBD5E1]'
+      };
+  }
+}
+
 export function AccountTab({
   userEmail,
   selectedTimezone,
@@ -75,6 +112,7 @@ export function AccountTab({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {brokersList.map((broker) => {
           const isLinked = broker.status === 'Linked';
+          const brokerSessionMeta = getBrokerSessionMeta(broker);
 
           return (
             <div key={broker.id} className="bg-white dark:bg-[#1E293B] rounded-2xl border border-gray-200 dark:border-[#334155] p-6 shadow-sm flex flex-col justify-between space-y-4">
@@ -106,6 +144,17 @@ export function AccountTab({
                     {broker.workerAuthReady ? 'Pronto' : 'Pendente'}
                   </span>
                 </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span>Sessão operacional</span>
+                  <span className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold ${brokerSessionMeta.cls}`}>
+                    {brokerSessionMeta.label}
+                  </span>
+                </div>
+                {broker?.brokerSession?.hint ? (
+                  <div className="text-[10px] text-gray-400 dark:text-[#64748B]">
+                    {broker.brokerSession.hint}
+                  </div>
+                ) : null}
                 {broker.credentialReference ? (
                   <div className="text-[10px] text-gray-400 dark:text-[#64748B]">
                     Ref segura: {broker.credentialReference}

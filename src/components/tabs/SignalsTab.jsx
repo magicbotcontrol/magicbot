@@ -56,6 +56,11 @@ function getRowStatusMeta(signal) {
         label: signal?.runtimeLabel || 'Na fila',
         cls: 'bg-blue-50 text-blue-700 dark:bg-blue-950/20 dark:text-blue-300'
       };
+    case 'executing':
+      return {
+        label: signal?.runtimeLabel || 'Executando',
+        cls: 'bg-violet-50 text-violet-700 dark:bg-violet-950/20 dark:text-violet-300'
+      };
     case 'ignored':
       return {
         label: 'Ignorado',
@@ -90,14 +95,15 @@ function getBrokerSessionMeta({ brokerSession, selectedBrokerItem }) {
       };
     case 'session_ready':
     case 'credentials_ready':
-      return {
-        label: 'Pronta',
-        cls: 'bg-blue-50 text-blue-700 dark:bg-blue-950/20 dark:text-blue-300'
-      };
     case 'linked':
       return {
-        label: 'Vinculada',
+        label: 'Reconectando',
         cls: 'bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-300'
+      };
+    case 'adapter_placeholder':
+      return {
+        label: 'Sem sessao',
+        cls: 'bg-blue-50 text-blue-700 dark:bg-blue-950/20 dark:text-blue-300'
       };
     default:
       return {
@@ -105,6 +111,41 @@ function getBrokerSessionMeta({ brokerSession, selectedBrokerItem }) {
         cls: 'bg-gray-100 text-gray-700 dark:bg-[#111827] dark:text-[#CBD5E1]'
       };
   }
+}
+
+function getRuntimeErrorMeta(rawValue) {
+  const value = String(rawValue || '').trim();
+  const key = value.toLowerCase();
+
+  if (!value) {
+    return null;
+  }
+
+  if (key === 'stop_bot_command') {
+    return {
+      visible: false,
+      message: 'Bot pausado pelo usuario.'
+    };
+  }
+
+  if (key === 'broker_session_login_failed') {
+    return {
+      visible: true,
+      message: 'Falha no login da corretora.'
+    };
+  }
+
+  if (key === 'broker_session_reconnecting') {
+    return {
+      visible: true,
+      message: 'Corretora reconectando.'
+    };
+  }
+
+  return {
+    visible: true,
+    message: value
+  };
 }
 
 export function SignalsTab({
@@ -161,6 +202,13 @@ export function SignalsTab({
   selectedAccountType,
   isBrokerLinked,
   isBrokerExecutionAutomatic,
+  brokerSession,
+  brokerSessionState,
+  isBrokerSessionConnected,
+  isBrokerSessionQaEnabled,
+  brokerSessionQaState,
+  setBrokerSessionQaState,
+  isSimulationMode,
   nextExecutionSignal,
   signalRuntimeRows,
   handleSignalManualResult,
@@ -174,8 +222,26 @@ export function SignalsTab({
   const isInteractionLocked = isLocked || isSyncLocked;
   const canToggleBot = botStatus === 'running' || canStartBot;
   const isExecutionAutomatic = Boolean(isBrokerExecutionAutomatic);
-  const brokerSession = selectedBotInstance?.last_sync_payload?.broker_session || null;
+  const executionModeValue = isSimulationMode
+    ? 'Simulação'
+    : isExecutionAutomatic
+      ? (t.executionModeAutomatic || 'Automática')
+      : (t.executionModeAssisted || 'Assistida');
+  const executionModeTone = isSimulationMode || isExecutionAutomatic ? 'success' : 'warning';
   const brokerSessionMeta = getBrokerSessionMeta({ brokerSession, selectedBrokerItem });
+  const runtimeErrorMeta = getRuntimeErrorMeta(selectedBotInstance?.last_runtime_error);
+  const qaSessionSelectClass = brokerSessionQaState === 'session_connected'
+    ? 'border-emerald-200 bg-emerald-50 text-emerald-800 focus:ring-emerald-400 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-200'
+    : brokerSessionQaState === 'session_login_failed'
+      ? 'border-rose-200 bg-rose-50 text-rose-800 focus:ring-rose-400 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-200'
+      : brokerSessionQaState === 'credentials_ready'
+        ? 'border-amber-200 bg-amber-50 text-amber-800 focus:ring-amber-400 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200'
+        : 'border-amber-200 bg-white text-amber-800 focus:ring-amber-400 dark:border-amber-900/40 dark:bg-[#1E293B] dark:text-amber-200';
+  const startBlockReason = !isBrokerSessionConnected
+    ? brokerSessionState === 'session_login_failed'
+      ? 'Falha no login da corretora'
+      : 'Corretora reconectando'
+    : '';
   const runtimeByKey = useMemo(
     () => Object.fromEntries((signalRuntimeRows || []).map((signal) => [signal.signalKey, signal])),
     [signalRuntimeRows]
@@ -183,11 +249,16 @@ export function SignalsTab({
   const syncControlClass = isSyncLocked ? 'ring-1 ring-blue-200 dark:ring-blue-900/50' : '';
   const editorStateLabel = isSyncLocked
     ? 'Sincronizando'
+    : sourceMode === 'published'
+      ? 'Sala publicada protegida'
+      : isLocked
+        ? 'Editor bloqueado'
+        : 'Minha lista editavel';
+  const editorHelperText = sourceMode === 'published'
+    ? 'Copie para Minha Lista para editar e publicar sua propria lista.'
     : isLocked
-      ? 'Editor bloqueado'
-      : sourceMode === 'published'
-        ? 'Sala publicada'
-        : 'Editor liberado';
+      ? 'Pare a automacao para alterar sua lista com seguranca.'
+      : 'Sua lista propria fica livre para edicao quando o bot estiver offline.';
 
   useEffect(() => {
     setAssetInput(selectedAsset || '');
@@ -211,7 +282,7 @@ export function SignalsTab({
                 <h2 className="text-xl font-black text-gray-900 dark:text-white">{t.editorIntel}</h2>
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
                   <span className={`inline-flex rounded-full px-2.5 py-1 font-bold ${
-                    editorStateLabel === 'Editor liberado'
+                    editorStateLabel === 'Minha lista editavel'
                       ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-300'
                       : editorStateLabel === 'Sincronizando'
                         ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/20 dark:text-blue-300'
@@ -220,7 +291,7 @@ export function SignalsTab({
                     {editorStateLabel}
                   </span>
                   <span className="text-gray-500 dark:text-[#94A3B8]">
-                    {sourceMode === 'published' ? (t.sourcePublished || 'Sala publicada') : (t.sourceWorkspace || 'Minha lista')}
+                    {editorHelperText}
                   </span>
                 </div>
               </div>
@@ -390,19 +461,24 @@ export function SignalsTab({
                   {botStatus === 'running' ? t.stopBot : t.startBot}
                 </span>
               </button>
+              {botStatus !== 'running' && startBlockReason ? (
+                <div className={`mt-3 rounded-xl border px-3 py-2 text-[11px] font-bold ${brokerSessionMeta.cls}`}>
+                  {startBlockReason}
+                </div>
+              ) : null}
 
               <div className="mt-5 grid grid-cols-2 gap-2.5">
                 <FlowBadge label={t.state || 'Estado'} value={botStatus === 'running' ? (t.runningStatus || 'Rodando') : (t.offlineStatus || 'Offline')} tone={botStatus === 'running' ? 'success' : 'neutral'} />
-                <FlowBadge label={t.executionModeLabel || 'Execução'} value={isExecutionAutomatic ? (t.executionModeAutomatic || 'Automática') : (t.executionModeAssisted || 'Assistida')} tone={isExecutionAutomatic ? 'success' : 'warning'} />
+                <FlowBadge label={t.executionModeLabel || 'Execução'} value={executionModeValue} tone={executionModeTone} />
                 <FlowBadge label={t.brokerLabelShort || 'Corretora'} value={`${selectedBrokerName || 'IQ Option'} • ${selectedAccountType || 'Demo'}`} tone={isBrokerLinked ? 'success' : 'warning'} />
                 <FlowBadge label={t.sourceLabel || 'Fonte'} value={sourceMode === 'published' ? (t.sourcePublished || 'Sala publicada') : (t.sourceWorkspace || 'Minha lista')} />
                 <FlowBadge label={t.valid || 'Válidos'} value={String(validCount || 0)} tone={validCount > 0 ? 'success' : 'warning'} />
                 <FlowBadge label={t.queueReadyLabel || 'Agendáveis'} value={String(executableSignalsCount || 0)} tone={executableSignalsCount > 0 ? 'success' : 'warning'} />
               </div>
 
-              {selectedBotInstance?.last_runtime_error ? (
+              {runtimeErrorMeta?.visible ? (
                 <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-300">
-                  {selectedBotInstance.last_runtime_error}
+                  {runtimeErrorMeta.message}
                 </div>
               ) : null}
               </div>
@@ -461,6 +537,28 @@ export function SignalsTab({
                       {selectedBrokerItem?.emailMasked || brokerSession?.credential_email_masked || '-'}
                     </span>
                   </div>
+                  {isBrokerSessionQaEnabled ? (
+                    <div className="mt-4 rounded-2xl border border-dashed border-amber-200 bg-amber-50/70 p-3 dark:border-amber-900/40 dark:bg-amber-950/10">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-700 dark:text-amber-300">QA Sessão</div>
+                          <div className="mt-1 text-[11px] text-amber-700/90 dark:text-amber-200/80">
+                            Override local para testar `Conectada`, `Falha no login` e `Reconectando`.
+                          </div>
+                        </div>
+                        <select
+                          value={brokerSessionQaState || ''}
+                          onChange={(e) => setBrokerSessionQaState?.(e.target.value)}
+                          className={`rounded-xl border px-3 py-2 text-[11px] font-bold focus:outline-none focus:ring-1 ${qaSessionSelectClass}`}
+                        >
+                          <option value="">Estado real</option>
+                          <option value="session_connected">Conectada</option>
+                          <option value="session_login_failed">Falha no login</option>
+                          <option value="credentials_ready">Reconectando</option>
+                        </select>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="grid grid-cols-2 gap-2.5">

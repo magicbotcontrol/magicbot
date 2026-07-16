@@ -272,6 +272,12 @@ export default function App() {
             isBrokerLinked={selectedBrokerItem?.status === 'Linked'}
             linkedBrokersCount={linkedBrokersCount}
             isBrokerExecutionAutomatic={false}
+            brokerSession={signals.brokerSession}
+            brokerSessionState={signals.brokerSessionState}
+            isBrokerSessionConnected={signals.isBrokerSessionConnected}
+            isBrokerSessionQaEnabled={signals.isBrokerSessionQaEnabled}
+            brokerSessionQaState={signals.brokerSessionQaState}
+            setBrokerSessionQaState={signals.setBrokerSessionQaState}
             executionMode={settings.config.executionMode}
             leadWindowSeconds={signals.leadWindowSeconds}
             isSimulationMode={signals.isSimulationMode}
