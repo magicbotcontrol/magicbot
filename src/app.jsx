@@ -40,23 +40,38 @@ export default function App() {
   const ui = useUiState();
   const session = useSessionState(ui.showToast, ui.t);
   const [authView, setAuthView] = useState('login');
+  const [entitlementsReloadToken, setEntitlementsReloadToken] = useState(0);
   const admin = useAdminState(session.isAdmin, ui.showToast, ui.t);
   const affiliates = useAffiliatesState(session.isLoggedIn, ui.showToast, ui.t);
   const workspace = useSupabaseWorkspace(session.isLoggedIn, ui.showToast, ui.t);
   const dashboard = useDashboardState(workspace.workspaceId, session.isLoggedIn, ui.showToast, ui.t);
-  const license = useLicenseState(workspace.workspaceId, session.isLoggedIn, session.isAdmin, ui.showToast, playAlertSound, ui.t);
-  const signalsEntitlement = useSignalsEntitlementState(workspace.workspaceId, session.isLoggedIn, ui.showToast, ui.t);
-  const copyEntitlement = useCopyTradingEntitlementState(workspace.workspaceId, session.isLoggedIn, ui.showToast, ui.t);
+  const license = useLicenseState(
+    workspace.workspaceId,
+    session.isLoggedIn,
+    session.isAdmin,
+    ui.showToast,
+    playAlertSound,
+    ui.t,
+    () => setEntitlementsReloadToken((current) => current + 1)
+  );
+  const signalsEntitlement = useSignalsEntitlementState(workspace.workspaceId, session.isLoggedIn, ui.showToast, ui.t, entitlementsReloadToken);
+  const copyEntitlement = useCopyTradingEntitlementState(workspace.workspaceId, session.isLoggedIn, ui.showToast, ui.t, entitlementsReloadToken);
   const broker = useBrokerState(workspace.workspaceId, ui.showToast, playAlertSound, ui.t);
   const settings = useSettingsState(workspace.workspaceId, ui.showToast, ui.t);
   const selectedBrokerName = settings.config.broker;
   const selectedBrokerItem = broker.brokersList.find((item) => item.name === selectedBrokerName) || null;
   const linkedBrokersCount = broker.brokersList.filter((item) => item.status === 'Linked').length;
+  const hasMembershipActive = session.isAdmin || license.isMembershipActive;
+  const hasDailyListAccess = session.isAdmin || (hasMembershipActive && signalsEntitlement.isSignalsDailyListActive);
+  const hasAutomatorAccess = session.isAdmin || (hasMembershipActive && signalsEntitlement.isSignalsAutomatorActive);
+  const hasCopyAccess = session.isAdmin || (hasMembershipActive && copyEntitlement.isCopyTradingActive);
+  const hasSignalsPackageAccess = hasDailyListAccess || hasAutomatorAccess;
+  const hasFullAccess = hasCopyAccess && hasDailyListAccess && hasAutomatorAccess;
   const signals = useSignalsState({
     workspaceId: workspace.workspaceId,
     isLoggedIn: session.isLoggedIn,
-    hasAutomatorAccess: signalsEntitlement.isSignalsAutomatorActive || session.isAdmin,
-    hasDailyListAccess: signalsEntitlement.isSignalsDailyListActive || session.isAdmin,
+    hasAutomatorAccess,
+    hasDailyListAccess,
     t: ui.t,
     showToast: ui.showToast,
     playAlertSound,
@@ -67,16 +82,24 @@ export default function App() {
     browserAlertsEnabled: settings.config.browserAlertsEnabled
   });
 
-  const isSignalsOnly = !session.isAdmin && !signalsEntitlement.isSignalsAutomatorActive && signalsEntitlement.isSignalsDailyListActive;
-  const visibleTabs = isSignalsOnly ? ['signals', 'copy', 'account', 'shop'] : null;
+  const visibleTabs = session.isAdmin
+    ? null
+    : [
+      'dashboard',
+      ...(hasSignalsPackageAccess ? ['signals'] : []),
+      ...(hasDailyListAccess ? ['live', 'strategies', 'ai'] : []),
+      ...(hasCopyAccess ? ['copy'] : []),
+      ...(hasSignalsPackageAccess ? ['settings'] : []),
+      'shop'
+    ];
 
   useEffect(() => {
-    if (!isSignalsOnly) return;
-    const allowed = new Set(['signals', 'copy', 'account', 'shop']);
+    if (session.isAdmin) return;
+    const allowed = new Set(['dashboard', 'account', 'affiliates', 'shop', ...(visibleTabs || [])]);
     if (!allowed.has(ui.activeTab)) {
-      ui.setActiveTab('signals');
+      ui.setActiveTab(hasSignalsPackageAccess ? 'signals' : 'shop');
     }
-  }, [isSignalsOnly, ui.activeTab, ui.setActiveTab]);
+  }, [session.isAdmin, ui.activeTab, ui.setActiveTab, visibleTabs, hasSignalsPackageAccess]);
 
   useEffect(() => {
     const routeView = new URLSearchParams(window.location.search).get('authView');
@@ -154,18 +177,6 @@ export default function App() {
   };
 
   const renderActiveTab = () => {
-    const isSignalsUnlocked = session.isAdmin || signalsEntitlement.isSignalsAutomatorActive || signalsEntitlement.isSignalsDailyListActive;
-    const isPremiumBlocked = !session.isAdmin && !signalsEntitlement.isSignalsAutomatorActive;
-    const premiumTabs = new Set(['live', 'strategies', 'ai', 'settings']);
-    if (!isSignalsUnlocked) {
-      premiumTabs.add('signals');
-      premiumTabs.add('account');
-    }
-
-    if (isPremiumBlocked && premiumTabs.has(ui.activeTab)) {
-      return <PremiumBlockedTab t={ui.t} setActiveTab={ui.setActiveTab} />;
-    }
-
     switch (ui.activeTab) {
       case 'dashboard':
         return (
@@ -180,6 +191,16 @@ export default function App() {
           />
         );
       case 'signals':
+        if (!hasSignalsPackageAccess) {
+          return (
+            <PremiumBlockedTab
+              t={ui.t}
+              setActiveTab={ui.setActiveTab}
+              title="Pacote do Automatizador necessário"
+              subtitle="Para usar o AutoTrader (Lista), o workspace precisa de mensalidade base ativa e de um pacote com Automatizador + Listas ou Full Access."
+            />
+          );
+        }
         return (
           <SignalsTab
             t={ui.t}
@@ -265,36 +286,76 @@ export default function App() {
           />
         );
       case 'live':
+        if (!hasDailyListAccess) {
+          return (
+            <PremiumBlockedTab
+              t={ui.t}
+              setActiveTab={ui.setActiveTab}
+              title="Pacote de listas necessário"
+              subtitle="OB, Cripto e Forex exigem mensalidade base ativa e um pacote com acesso às listas."
+            />
+          );
+        }
         return (
           <DailySignalsTab
             t={ui.t}
             showToast={ui.showToast}
-            canViewDailyList={session.isAdmin || signalsEntitlement.isSignalsDailyListActive}
+            canViewDailyList={hasDailyListAccess}
             marketCode="ob"
             title={ui.t.live}
           />
         );
       case 'strategies':
+        if (!hasDailyListAccess) {
+          return (
+            <PremiumBlockedTab
+              t={ui.t}
+              setActiveTab={ui.setActiveTab}
+              title="Pacote de listas necessário"
+              subtitle="OB, Cripto e Forex exigem mensalidade base ativa e um pacote com acesso às listas."
+            />
+          );
+        }
         return (
           <DailySignalsTab
             t={ui.t}
             showToast={ui.showToast}
-            canViewDailyList={session.isAdmin || signalsEntitlement.isSignalsDailyListActive}
+            canViewDailyList={hasDailyListAccess}
             marketCode="forex"
             title={ui.t.strategies}
           />
         );
       case 'ai':
+        if (!hasDailyListAccess) {
+          return (
+            <PremiumBlockedTab
+              t={ui.t}
+              setActiveTab={ui.setActiveTab}
+              title="Pacote de listas necessário"
+              subtitle="OB, Cripto e Forex exigem mensalidade base ativa e um pacote com acesso às listas."
+            />
+          );
+        }
         return (
           <DailySignalsTab
             t={ui.t}
             showToast={ui.showToast}
-            canViewDailyList={session.isAdmin || signalsEntitlement.isSignalsDailyListActive}
+            canViewDailyList={hasDailyListAccess}
             marketCode="crypto"
             title={ui.t.ai}
           />
         );
       case 'copy':
+        if (!hasCopyAccess) {
+          return (
+            <PremiumBlockedTab
+              t={ui.t}
+              setActiveTab={ui.setActiveTab}
+              title="Pacote Copy Trading necessário"
+              subtitle="Para usar o Copy Trading, o workspace precisa de mensalidade base ativa e do pacote Copy Trading ou Full Access."
+            />
+          );
+        }
         return (
           <CopyTab
             showToast={ui.showToast}
@@ -352,6 +413,7 @@ export default function App() {
             setSortOrder={admin.setSortOrder}
             userPage={admin.userPage}
             workspacePage={admin.workspacePage}
+            workspacePackageCounters={admin.workspacePackageCounters}
             userTotalPages={admin.userTotalPages}
             workspaceTotalPages={admin.workspaceTotalPages}
             setUserPage={admin.setUserPage}
@@ -393,6 +455,16 @@ export default function App() {
           />
         );
       case 'settings':
+        if (!hasSignalsPackageAccess) {
+          return (
+            <PremiumBlockedTab
+              t={ui.t}
+              setActiveTab={ui.setActiveTab}
+              title="Pacote operacional necessário"
+              subtitle="As configurações operacionais são liberadas junto com os pacotes que incluem Automatizador e listas."
+            />
+          );
+        }
         return (
           <SettingsTab
             config={settings.config}
@@ -409,7 +481,18 @@ export default function App() {
           />
         );
       case 'shop':
-        return <ShopTab shopCycle={license.shopCycle} setShopCycle={license.setShopCycle} buyDaysSimulate={license.buyDaysSimulate} t={ui.t} formatMoney={ui.formatMoney} />;
+        return (
+          <ShopTab
+            buyDaysSimulate={license.buyDaysSimulate}
+            t={ui.t}
+            formatMoney={ui.formatMoney}
+            isMembershipActive={license.isMembershipActive}
+            membershipExpirationDate={license.expirationDate}
+            hasCopyAccess={hasCopyAccess}
+            hasSignalsPackageAccess={hasSignalsPackageAccess}
+            hasFullAccess={hasFullAccess}
+          />
+        );
       default:
         return null;
     }
@@ -544,10 +627,16 @@ export default function App() {
       </div>
 
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-[#1E293B] border-t border-gray-200 dark:border-[#334155] h-16 flex justify-around items-center z-40 px-2 pb-safe overflow-visible">
-        {!isSignalsOnly ? <MobileNavItem icon={Icons.Dashboard} label="Dash" active={ui.activeTab === 'dashboard'} onClick={() => ui.setActiveTab('dashboard')} /> : null}
-        {!isSignalsOnly ? <MobileNavItem icon={Icons.Activity} label="Sinais" active={ui.activeTab === 'live'} onClick={() => ui.setActiveTab('live')} /> : null}
-        <MobileNavItem prominent icon={Icons.Signals} label="Auto" active={ui.activeTab === 'signals'} onClick={() => ui.setActiveTab('signals')} />
-        <MobileNavItem icon={Icons.ShoppingBag} label="Loja" active={ui.activeTab === 'shop'} onClick={() => ui.setActiveTab('shop')} />
+        <MobileNavItem icon={Icons.Dashboard} label="Dash" active={ui.activeTab === 'dashboard'} onClick={() => ui.setActiveTab('dashboard')} />
+        {hasDailyListAccess ? <MobileNavItem icon={Icons.Activity} label="Sinais" active={ui.activeTab === 'live'} onClick={() => ui.setActiveTab('live')} /> : null}
+        {hasSignalsPackageAccess ? (
+          <MobileNavItem prominent icon={Icons.Signals} label="Auto" active={ui.activeTab === 'signals'} onClick={() => ui.setActiveTab('signals')} />
+        ) : hasCopyAccess ? (
+          <MobileNavItem prominent icon={Icons.Copy} label="Copy" active={ui.activeTab === 'copy'} onClick={() => ui.setActiveTab('copy')} />
+        ) : (
+          <MobileNavItem prominent icon={Icons.ShoppingBag} label="Loja" active={ui.activeTab === 'shop'} onClick={() => ui.setActiveTab('shop')} />
+        )}
+        {!(!hasSignalsPackageAccess && !hasCopyAccess) ? <MobileNavItem icon={Icons.ShoppingBag} label="Loja" active={ui.activeTab === 'shop'} onClick={() => ui.setActiveTab('shop')} /> : null}
         <MobileNavItem icon={Icons.Menu} label="Menu" active={ui.isSidebarOpen} onClick={() => ui.setIsSidebarOpen(!ui.isSidebarOpen)} />
       </div>
 
@@ -566,6 +655,8 @@ export default function App() {
       <PixModal
         showPixModal={license.showPixModal}
         pixAmount={license.pixAmount}
+        pixTitle={license.pixTitle}
+        pixDescription={license.pixDescription}
         handlePixSuccess={license.handlePixSuccess}
         setShowPixModal={license.setShowPixModal}
         t={ui.t}

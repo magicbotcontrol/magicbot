@@ -48,6 +48,8 @@ function applyWorkspaceFilters(workspaces, filters) {
   const runtimeQuery = filters.runtime;
   const brokersQuery = filters.brokers;
   const testAccountsQuery = filters.testAccounts;
+  const membershipQuery = filters.membership;
+  const packageQuery = filters.packageType;
 
   return workspaces.filter((workspace) => {
     const slugMatches = !slugQuery || workspace.slug.toLowerCase().includes(slugQuery);
@@ -61,7 +63,17 @@ function applyWorkspaceFilters(workspaces, filters) {
       testAccountsQuery === 'all'
       || (testAccountsQuery === 'test' && workspace.ownerIsTestAccount)
       || (testAccountsQuery === 'real' && !workspace.ownerIsTestAccount);
-    return slugMatches && ownerMatches && runtimeMatches && brokersMatches && testMatches;
+    const membershipMatches =
+      membershipQuery === 'all'
+      || (membershipQuery === 'active' && workspace.licenseStatus === 'active' && workspace.remainingDays > 0)
+      || (membershipQuery === 'inactive' && !(workspace.licenseStatus === 'active' && workspace.remainingDays > 0));
+    const packageMatches =
+      packageQuery === 'all'
+      || (packageQuery === 'copy_trading_package' && workspace.packageCode === 'copy_trading_package')
+      || (packageQuery === 'automator_lists_package' && workspace.packageCode === 'automator_lists_package')
+      || (packageQuery === 'full_access_package' && workspace.packageCode === 'full_access_package')
+      || (packageQuery === 'none' && !workspace.packageCode);
+    return slugMatches && ownerMatches && runtimeMatches && brokersMatches && testMatches && membershipMatches && packageMatches;
   });
 }
 
@@ -83,7 +95,16 @@ export function useAdminState(isAdmin, showToast, t) {
   const errorMessageRef = useRef(t.supabaseSyncError);
   const [overview, setOverview] = useState(EMPTY_OVERVIEW);
   const [isAdminLoading, setIsAdminLoading] = useState(false);
-  const [filters, setFilters] = useState({ email: '', slug: '', role: 'all', runtime: 'all', brokers: 'all', testAccounts: 'all' });
+  const [filters, setFilters] = useState({
+    email: '',
+    slug: '',
+    role: 'all',
+    runtime: 'all',
+    brokers: 'all',
+    testAccounts: 'all',
+    membership: 'all',
+    packageType: 'all'
+  });
   const [sortOrders, setSortOrders] = useState({ users: 'desc', workspaces: 'desc' });
   const [userPage, setUserPage] = useState(1);
   const [workspacePage, setWorkspacePage] = useState(1);
@@ -246,6 +267,35 @@ export function useAdminState(isAdmin, showToast, t) {
 
   const filteredUsers = sortByCreatedAt(applyUserFilters(overview?.users || [], filters), sortOrders.users);
   const filteredWorkspaces = sortByCreatedAt(applyWorkspaceFilters(overview?.workspaces || [], filters), sortOrders.workspaces);
+  const workspacePackageCounters = filteredWorkspaces.reduce((acc, workspace) => {
+    const membershipActive = workspace.licenseStatus === 'active' && workspace.remainingDays > 0;
+    if (membershipActive) acc.baseActive += 1;
+    else acc.baseInactive += 1;
+
+    switch (workspace.packageCode) {
+      case 'copy_trading_package':
+        acc.copy += 1;
+        break;
+      case 'automator_lists_package':
+        acc.automatorLists += 1;
+        break;
+      case 'full_access_package':
+        acc.full += 1;
+        break;
+      default:
+        acc.none += 1;
+        break;
+    }
+
+    return acc;
+  }, {
+    baseActive: 0,
+    baseInactive: 0,
+    copy: 0,
+    automatorLists: 0,
+    full: 0,
+    none: 0
+  });
   const userPageState = buildPageState(filteredUsers.length, 6, userPage);
   const workspacePageState = buildPageState(filteredWorkspaces.length, 6, workspacePage);
 
@@ -493,6 +543,7 @@ export function useAdminState(isAdmin, showToast, t) {
     setSortOrder: handleSortOrderChange,
     userPage,
     workspacePage,
+    workspacePackageCounters,
     userTotalPages: userPageState.totalPages,
     workspaceTotalPages: workspacePageState.totalPages,
     setUserPage,

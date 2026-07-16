@@ -7,7 +7,7 @@ const EMPTY = {
   remainingDays: 0
 };
 
-export function useSignalsEntitlementState(workspaceId, isLoggedIn, showToast, t) {
+export function useSignalsEntitlementState(workspaceId, isLoggedIn, showToast, t, reloadKey = 0) {
   const showToastRef = useRef(showToast);
   const errorMessageRef = useRef(t.supabaseSyncError);
   const [dailyListEntitlement, setDailyListEntitlement] = useState(EMPTY);
@@ -54,7 +54,7 @@ export function useSignalsEntitlementState(workspaceId, isLoggedIn, showToast, t
     return () => {
       mounted = false;
     };
-  }, [workspaceId, isLoggedIn]);
+  }, [workspaceId, isLoggedIn, reloadKey]);
 
   const isSignalsDailyListActive = dailyListEntitlement.status === 'active' && dailyListEntitlement.remainingDays > 0;
   const isSignalsAutomatorActive = automatorEntitlement.status === 'active' && automatorEntitlement.remainingDays > 0;

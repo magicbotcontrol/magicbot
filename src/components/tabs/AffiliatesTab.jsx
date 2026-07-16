@@ -281,11 +281,11 @@ export function AffiliatesTab({
   isLoading
 }) {
   const [expandedRows, setExpandedRows] = useState(() => ({ 1: true, 2: true }));
-  const resolvedReferralCode = referralCode || 'comunidade_rm';
+  const resolvedReferralCode = String(referralCode || '').trim().toUpperCase();
   const configuredUrl = import.meta.env.VITE_APP_URL?.trim();
   const fallbackUrl = typeof window !== 'undefined' ? window.location.origin : '';
   const baseUrl = (configuredUrl || fallbackUrl).replace(/\/$/, '');
-  const referralLink = `${baseUrl}/?ref=${encodeURIComponent(resolvedReferralCode)}`;
+  const referralLink = resolvedReferralCode ? `${baseUrl}/?ref=${encodeURIComponent(resolvedReferralCode)}` : '';
   const safeSummary = summary || {};
   const safeNetwork = network || {};
   const safeMatrix = matrix || {};
@@ -400,11 +400,17 @@ export function AffiliatesTab({
           <div className="rounded-[28px] border border-gray-200 bg-white p-6 shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
             <h3 className="text-sm font-black text-gray-900 dark:text-white">{t.yourReferralLink || 'Seu Link de Indicacao'}</h3>
             <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-gray-50 p-3 dark:border-[#334155] dark:bg-[#0F172A]">
-              <span className="truncate text-xs font-mono text-gray-500 dark:text-gray-300">{referralLink}</span>
+              <span className="truncate text-xs font-mono text-gray-500 dark:text-gray-300">
+                {referralLink || (t.affiliateLinkUnavailable || 'Seu codigo de indicacao ainda nao esta disponivel. Atualize a sessao em alguns instantes.')}
+              </span>
               <button
                 type="button"
-                onClick={() => handleCopyText(referralLink, t.affiliateLink || 'Link de Afiliado')}
-                className="rounded-xl p-2 text-[#FF6B00] transition-colors hover:bg-white dark:hover:bg-[#1E293B]"
+                onClick={() => {
+                  if (!referralLink) return;
+                  handleCopyText(referralLink, t.affiliateLink || 'Link de Afiliado');
+                }}
+                disabled={!referralLink}
+                className="rounded-xl p-2 text-[#FF6B00] transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-[#1E293B]"
               >
                 {Icons.CopyText()}
               </button>

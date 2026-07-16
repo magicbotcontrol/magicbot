@@ -17,6 +17,52 @@ function RuntimeBadge({ status }) {
   return <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${tone}`}>{status}</span>;
 }
 
+function getMembershipBadgeClass(active) {
+  return active
+    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300'
+    : 'bg-gray-100 text-gray-600 dark:bg-[#1E293B] dark:text-[#CBD5E1]';
+}
+
+function getPackageBadgeClass(status) {
+  if (status === 'active') {
+    return 'bg-[#FFF7F0] text-[#B45309] dark:bg-[#3A1E12] dark:text-[#FDBA74]';
+  }
+
+  if (status === 'partial') {
+    return 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300';
+  }
+
+  return 'bg-gray-100 text-gray-600 dark:bg-[#1E293B] dark:text-[#CBD5E1]';
+}
+
+function MembershipSummary({ remainingDays, licenseStatus }) {
+  const active = licenseStatus === 'active' && remainingDays > 0;
+
+  return (
+    <div className="space-y-1">
+      <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${getMembershipBadgeClass(active)}`}>
+        {active ? 'Mensalidade ativa' : 'Mensalidade inativa'}
+      </span>
+      <p className="text-xs text-gray-500 dark:text-[#94A3B8]">
+        {active ? `${remainingDays} dias restantes` : 'Base expirada'}
+      </p>
+    </div>
+  );
+}
+
+function PackageSummary({ label, status }) {
+  return (
+    <div className="space-y-1">
+      <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${getPackageBadgeClass(status)}`}>
+        {label || 'Nenhum pacote ativo'}
+      </span>
+      <p className="text-xs text-gray-500 dark:text-[#94A3B8]">
+        {status === 'active' ? 'Pacote pronto para uso' : status === 'partial' ? 'Entitlements parciais ativos' : 'Sem pacote operacional'}
+      </p>
+    </div>
+  );
+}
+
 function TestAccountBadge({ isTestAccount, t }) {
   if (!isTestAccount) return null;
 
@@ -66,6 +112,7 @@ export function AdminTab({
   setSortOrder,
   userPage,
   workspacePage,
+  workspacePackageCounters,
   userTotalPages,
   workspaceTotalPages,
   setUserPage,
@@ -107,6 +154,22 @@ export function AdminTab({
   grantSignalsBundleAccess,
   revokeSignalsBundleAccess
 }) {
+  const quickCounters = [
+    { label: 'Base ativa', value: workspacePackageCounters?.baseActive || 0, tone: 'emerald' },
+    { label: 'Base inativa', value: workspacePackageCounters?.baseInactive || 0, tone: 'slate' },
+    { label: 'Copy', value: workspacePackageCounters?.copy || 0, tone: 'orange' },
+    { label: 'Automatizador + Listas', value: workspacePackageCounters?.automatorLists || 0, tone: 'amber' },
+    { label: 'Full', value: workspacePackageCounters?.full || 0, tone: 'orange' },
+    { label: 'Nenhum pacote', value: workspacePackageCounters?.none || 0, tone: 'slate' }
+  ];
+
+  const counterToneClass = (tone) => {
+    if (tone === 'emerald') return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/15 dark:text-emerald-300';
+    if (tone === 'amber') return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/15 dark:text-amber-300';
+    if (tone === 'orange') return 'border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/40 dark:bg-orange-950/15 dark:text-orange-300';
+    return 'border-gray-200 bg-gray-50 text-gray-700 dark:border-[#334155] dark:bg-[#111827] dark:text-[#CBD5E1]';
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="bg-white dark:bg-[#1E293B] rounded-2xl p-6 border border-gray-200 dark:border-[#334155] shadow-sm">
@@ -249,7 +312,7 @@ export function AdminTab({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
           <label className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">{t.adminHealthRuntime}</label>
           <select
@@ -272,6 +335,32 @@ export function AdminTab({
             <option value="all">{t.adminBrokerFilterAll}</option>
             <option value="zero">{t.adminBrokerFilterZero}</option>
             <option value="linked">{t.adminBrokerFilterLinked}</option>
+          </select>
+        </div>
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
+          <label className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">Mensalidade base</label>
+          <select
+            value={filters.membership}
+            onChange={(event) => setFilter('membership', event.target.value)}
+            className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#FF6B00] dark:border-[#334155] dark:bg-[#0B1220] dark:text-white"
+          >
+            <option value="all">Todas</option>
+            <option value="active">Ativa</option>
+            <option value="inactive">Inativa</option>
+          </select>
+        </div>
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
+          <label className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">Pacote atual</label>
+          <select
+            value={filters.packageType}
+            onChange={(event) => setFilter('packageType', event.target.value)}
+            className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#FF6B00] dark:border-[#334155] dark:bg-[#0B1220] dark:text-white"
+          >
+            <option value="all">Todos</option>
+            <option value="copy_trading_package">Copy</option>
+            <option value="automator_lists_package">Automatizador + Listas</option>
+            <option value="full_access_package">Full</option>
+            <option value="none">Nenhum</option>
           </select>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
@@ -398,7 +487,15 @@ export function AdminTab({
             {isAdminLoading ? <span className="text-xs font-semibold text-gray-400">{t.loadingSignals}</span> : null}
           </div>
         </div>
-        <ScrollableTableShell minWidthClass="min-w-[1240px]" hintLabel={t.swipeHint}>
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-6">
+          {quickCounters.map((item) => (
+            <div key={item.label} className={`rounded-2xl border px-4 py-3 shadow-sm ${counterToneClass(item.tone)}`}>
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] opacity-80">{item.label}</p>
+              <p className="mt-2 text-2xl font-black">{item.value}</p>
+            </div>
+          ))}
+        </div>
+        <ScrollableTableShell minWidthClass="min-w-[1440px]" hintLabel={t.swipeHint}>
           <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-[#0F172A] text-gray-500 dark:text-[#94A3B8]">
               <tr>
@@ -407,7 +504,8 @@ export function AdminTab({
                 <th className="px-4 py-3 text-left font-bold">{t.adminWorkspaceOwner}</th>
                 <th className="px-4 py-3 text-left font-bold">{t.adminHealthRuntime}</th>
                 <th className="px-4 py-3 text-left font-bold">{t.adminHealthBrokers}</th>
-                <th className="px-4 py-3 text-left font-bold">{t.adminTimeLeft}</th>
+                <th className="px-4 py-3 text-left font-bold">Mensalidade base</th>
+                <th className="px-4 py-3 text-left font-bold">Pacote atual</th>
                 <th className="px-4 py-3 text-left font-bold">{t.adminLists}</th>
                 <th className="px-4 py-3 text-left font-bold">{t.adminResult}</th>
                 <th className="px-4 py-3 text-left font-bold">{t.adminCreatedAt}</th>
@@ -430,7 +528,12 @@ export function AdminTab({
                       {workspace.linkedBrokersCount}/{workspace.totalBrokersCount}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-[#CBD5E1]">{t.adminDaysLeftCompact.replace('{days}', workspace.remainingDays)}</td>
+                  <td className="px-4 py-3">
+                    <MembershipSummary remainingDays={workspace.remainingDays} licenseStatus={workspace.licenseStatus} />
+                  </td>
+                  <td className="px-4 py-3">
+                    <PackageSummary label={workspace.packageLabel} status={workspace.packageStatus} />
+                  </td>
                   <td className="px-4 py-3 text-gray-600 dark:text-[#CBD5E1]">{workspace.signalListsCount}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-[#CBD5E1]">{workspace.wins}W / {workspace.losses}L</td>
                   <td className="px-4 py-3">
@@ -448,7 +551,7 @@ export function AdminTab({
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan="9" className="px-4 py-6 text-center text-sm text-gray-500 dark:text-[#94A3B8]">
+                  <td colSpan="10" className="px-4 py-6 text-center text-sm text-gray-500 dark:text-[#94A3B8]">
                     {t.adminNoWorkspaces}
                   </td>
                 </tr>

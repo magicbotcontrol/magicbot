@@ -236,7 +236,7 @@ export function useSessionState(showToast, t) {
     }
 
     const normalized = (rawCode || '').trim().toUpperCase();
-    if (!normalized || !normalized.startsWith('MAGIC-')) {
+    if (!normalized) {
       return { ok: true, valid: true, normalized };
     }
 

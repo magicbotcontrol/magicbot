@@ -1,15 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { extendWorkspaceLicense, getWorkspaceLicense } from '../services/supabaseLicense';
+import { purchaseWorkspacePackage } from '../services/supabaseEntitlements';
 
-export function useLicenseState(workspaceId, isLoggedIn, isAdmin, showToast, playAlertSound, t) {
+export function useLicenseState(workspaceId, isLoggedIn, isAdmin, showToast, playAlertSound, t, onPackagePurchased) {
   const showToastRef = useRef(showToast);
   const errorMessageRef = useRef(t.supabaseSyncError);
   const [remainingDays, setRemainingDays] = useState(0);
   const [expirationDate, setExpirationDate] = useState('-');
   const [licenseStatus, setLicenseStatus] = useState('expired');
-  const [shopCycle, setShopCycle] = useState('monthly');
-  const [showPixModal, setShowPixModal] = useState(false);
-  const [pixAmount, setPixAmount] = useState(99.9);
+  const [selectedOffer, setSelectedOffer] = useState(null);
   const [isLicenseLoading, setIsLicenseLoading] = useState(false);
 
   useEffect(() => {
@@ -51,9 +50,8 @@ export function useLicenseState(workspaceId, isLoggedIn, isAdmin, showToast, pla
     };
   }, [workspaceId, isLoggedIn, isAdmin]);
 
-  const buyDaysSimulate = (planName, amount) => {
-    setPixAmount(amount);
-    setShowPixModal(planName);
+  const buyDaysSimulate = (offer) => {
+    setSelectedOffer(offer || null);
   };
 
   const handlePixSuccess = async () => {
@@ -65,17 +63,32 @@ export function useLicenseState(workspaceId, isLoggedIn, isAdmin, showToast, pla
     setIsLicenseLoading(true);
 
     try {
-      const license = await extendWorkspaceLicense(workspaceId, {
-        days: 30,
-        planName: shopCycle === 'semiannual' ? 'semiannual' : 'monthly'
-      });
+      if (!selectedOffer?.kind) {
+        throw new Error('Missing purchase offer');
+      }
 
-      setRemainingDays(license.remainingDays);
-      setExpirationDate(license.expirationDate);
-      setLicenseStatus(license.status);
-      setShowPixModal(false);
+      if (selectedOffer.kind === 'membership') {
+        const license = await extendWorkspaceLicense(workspaceId, {
+          days: Number(selectedOffer.days || 30),
+          planName: selectedOffer.planName || 'membership-monthly'
+        });
+
+        setRemainingDays(license.remainingDays);
+        setExpirationDate(license.expirationDate);
+        setLicenseStatus(license.status);
+      } else if (selectedOffer.kind === 'package') {
+        await purchaseWorkspacePackage(
+          workspaceId,
+          selectedOffer.packageCode,
+          Number(selectedOffer.days || 30),
+          selectedOffer.note || `Compra do pacote ${selectedOffer.title || selectedOffer.packageCode}`
+        );
+        onPackagePurchased?.();
+      }
+
+      setSelectedOffer(null);
       playAlertSound(950, 0.35);
-      showToastRef.current(t.subscriptionRenewed);
+      showToastRef.current(selectedOffer.successMessage || t.subscriptionRenewed);
     } catch {
       showToastRef.current(t.supabaseSaveError);
     } finally {
@@ -83,19 +96,21 @@ export function useLicenseState(workspaceId, isLoggedIn, isAdmin, showToast, pla
     }
   };
 
-  const isPremiumBlocked = !isAdmin && remainingDays <= 0;
+  const isMembershipActive = isAdmin || remainingDays > 0;
+  const isPremiumBlocked = !isAdmin && !isMembershipActive;
 
   return {
     remainingDays,
     expirationDate,
     licenseStatus,
+    isMembershipActive,
     isPremiumBlocked,
     isLicenseLoading,
-    shopCycle,
-    setShopCycle,
-    showPixModal,
-    setShowPixModal,
-    pixAmount,
+    showPixModal: selectedOffer,
+    setShowPixModal: setSelectedOffer,
+    pixAmount: Number(selectedOffer?.amount || 0),
+    pixTitle: selectedOffer?.title || '',
+    pixDescription: selectedOffer?.description || '',
     buyDaysSimulate,
     handlePixSuccess
   };

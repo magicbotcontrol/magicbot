@@ -7,7 +7,7 @@ const EMPTY = {
   remainingDays: 0
 };
 
-export function useCopyTradingEntitlementState(workspaceId, isLoggedIn, showToast, t) {
+export function useCopyTradingEntitlementState(workspaceId, isLoggedIn, showToast, t, reloadKey = 0) {
   const showToastRef = useRef(showToast);
   const errorMessageRef = useRef(t.supabaseSyncError);
   const [copyEntitlement, setCopyEntitlement] = useState(EMPTY);
@@ -47,7 +47,7 @@ export function useCopyTradingEntitlementState(workspaceId, isLoggedIn, showToas
     return () => {
       mounted = false;
     };
-  }, [workspaceId, isLoggedIn]);
+  }, [workspaceId, isLoggedIn, reloadKey]);
 
   const isCopyTradingActive = copyEntitlement.status === 'active' && copyEntitlement.remainingDays > 0;
 

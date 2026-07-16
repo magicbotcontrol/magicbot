@@ -1,37 +1,20 @@
-import { colors } from '../../constants/colors';
 import { Icons } from '../../constants/icons';
 
-export function ShopTab({ shopCycle, setShopCycle, buyDaysSimulate, t, formatMoney }) {
-  const isSemiannual = shopCycle === 'semiannual';
-  const starter = {
-    monthlyPrice: 89.9,
-    semiannualPrice: 71.92,
-    monthlyTotal: 89.9,
-    semiannualTotal: 431.52,
-    semiannualSave: 107.88
-  };
-  const pro = {
-    monthlyPrice: 99.9,
-    semiannualPrice: 79.9,
-    monthlyTotal: 99.9,
-    semiannualTotal: 479.4,
-    semiannualSave: 120.0
-  };
+function StatusBadge({ active, label }) {
+  return (
+    <span className={`inline-flex items-center rounded-full px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.16em] ${
+      active
+        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+        : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'
+    }`}>
+      {label}
+    </span>
+  );
+}
 
-  const starterPrice = isSemiannual ? starter.semiannualPrice : starter.monthlyPrice;
-  const starterTotal = isSemiannual ? starter.semiannualTotal : starter.monthlyTotal;
-  const proPrice = isSemiannual ? pro.semiannualPrice : pro.monthlyPrice;
-  const proTotal = isSemiannual ? pro.semiannualTotal : pro.monthlyTotal;
-
-  const starterFeatures = [t.allFeatures, t.shopAllModes, t.shopAllBrokers, t.shopStarterExtra];
-  const proFeatures = [t.allFeatures, t.shopAllModes, t.shopAllBrokers, t.shopProExtra];
-  const signalsListProduct = {
-    monthly: 100,
-    quarterly: 240
-  };
-
-  const renderFeatures = (items) => (
-    <ul className="mt-6 space-y-3 border-t border-gray-100 dark:border-[#334155] pt-5">
+function FeatureList({ items }) {
+  return (
+    <ul className="mt-5 space-y-3 border-t border-gray-100 pt-5 dark:border-[#334155]">
       {items.map((feature) => (
         <li key={feature} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
           <span className="mt-0.5 text-green-500 dark:text-green-400">
@@ -42,182 +25,208 @@ export function ShopTab({ shopCycle, setShopCycle, buyDaysSimulate, t, formatMon
       ))}
     </ul>
   );
+}
+
+function PackageCard({ title, price, description, statusLabel, isActive, note, features, onBuy, ctaLabel, tone = 'default', formatMoney }) {
+  const toneClass = tone === 'highlight'
+    ? 'border-[#FF6B00] shadow-md'
+    : 'border-gray-200 shadow-sm dark:border-[#334155]';
 
   return (
-    <div className="max-w-6xl mx-auto space-y-10 animate-fade-in">
+    <div className={`rounded-[28px] border bg-white p-7 dark:bg-[#1E293B] ${toneClass}`}>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="text-2xl font-black text-gray-900 dark:text-white">{title}</h3>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{description}</p>
+        </div>
+        <StatusBadge active={isActive} label={statusLabel} />
+      </div>
+
+      <p className="mt-5 text-4xl font-black text-orange-500 dark:text-orange-400">
+        {formatMoney(price, 'USD')}
+      </p>
+      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">30 dias de acesso ao pacote.</p>
+
+      {note ? (
+        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/15 dark:text-amber-300">
+          {note}
+        </div>
+      ) : null}
+
+      <FeatureList items={features} />
+
+      <button
+        type="button"
+        onClick={onBuy}
+        className={`mt-8 w-full rounded-2xl px-5 py-3 text-sm font-bold transition-colors ${
+          tone === 'highlight'
+            ? 'bg-[#FF6B00] text-white hover:bg-[#FF7F1F]'
+            : 'bg-gray-100 text-gray-900 hover:bg-gray-200 dark:bg-[#0B1220] dark:text-white dark:hover:bg-[#111827]'
+        }`}
+      >
+        {ctaLabel}
+      </button>
+    </div>
+  );
+}
+
+export function ShopTab({
+  buyDaysSimulate,
+  t,
+  formatMoney,
+  isMembershipActive,
+  membershipExpirationDate,
+  hasCopyAccess,
+  hasSignalsPackageAccess,
+  hasFullAccess
+}) {
+  const membershipOffer = {
+    kind: 'membership',
+    title: 'Mensalidade base',
+    description: 'Ativa o workspace por 30 dias. Ela é obrigatória para qualquer pacote funcionar.',
+    amount: 40,
+    days: 30,
+    planName: 'membership-monthly',
+    successMessage: 'Mensalidade base ativada com sucesso por 30 dias.'
+  };
+
+  const packages = [
+    {
+      kind: 'package',
+      packageCode: 'copy_trading_package',
+      title: 'Pacote Copy Trading',
+      amount: 40,
+      description: 'Libera exclusivamente o produto Copy Trading por 30 dias.',
+      successMessage: 'Pacote Copy Trading ativado com sucesso.',
+      statusLabel: hasCopyAccess ? 'Ativo' : 'Inativo',
+      isActive: hasCopyAccess,
+      note: isMembershipActive ? 'Mensalidade base validada. Este pacote já pode liberar o Copy Trading.' : 'Este pacote exige a mensalidade base de $40 ativa.',
+      features: [
+        'Acesso ao Copy Trading',
+        'Janela de uso por 30 dias',
+        'Sem liberar Automatizador ou listas'
+      ]
+    },
+    {
+      kind: 'package',
+      packageCode: 'automator_lists_package',
+      title: 'Pacote Automatizador + Listas',
+      amount: 60,
+      description: 'Libera o AutoTrader (Lista) e as 3 listas: OB, Cripto e Forex.',
+      successMessage: 'Pacote Automatizador + Listas ativado com sucesso.',
+      statusLabel: hasSignalsPackageAccess ? 'Ativo' : 'Inativo',
+      isActive: hasSignalsPackageAccess,
+      note: isMembershipActive ? 'Mensalidade base validada. O pacote cobre AutoTrader e as listas de sinais.' : 'Este pacote exige a mensalidade base de $40 ativa.',
+      features: [
+        'AutoTrader (Lista)',
+        'Sinais Diários OB',
+        'Sinais Diários Cripto',
+        'Sinais Diários Forex'
+      ]
+    },
+    {
+      kind: 'package',
+      packageCode: 'full_access_package',
+      title: 'Pacote Full Access',
+      amount: 80,
+      description: 'Libera todos os produtos: Copy Trading, Automatizador e as 3 listas.',
+      successMessage: 'Pacote Full Access ativado com sucesso.',
+      statusLabel: hasFullAccess ? 'Ativo' : 'Inativo',
+      isActive: hasFullAccess,
+      note: isMembershipActive ? 'Mensalidade base validada. Este é o pacote completo de 30 dias.' : 'Este pacote exige a mensalidade base de $40 ativa.',
+      features: [
+        'Copy Trading',
+        'AutoTrader (Lista)',
+        'Sinais Diários OB',
+        'Sinais Diários Cripto',
+        'Sinais Diários Forex'
+      ]
+    }
+  ];
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-8 animate-fade-in">
       <div className="text-center space-y-3">
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-[0.2em] bg-orange-50 dark:bg-orange-950/30 text-[#FF6B00] dark:text-[#FF8A3D]">
-          {t.shopPremiumTag}
+        <span className="inline-flex items-center rounded-full bg-orange-50 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#FF6B00] dark:bg-orange-950/30 dark:text-[#FF8A3D]">
+          Loja de pacotes
         </span>
-        <h2 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">{t.acquireLicences}</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">{t.selectPlan}</p>
+        <h2 className="text-2xl font-black text-gray-900 dark:text-white md:text-3xl">Ative sua mensalidade e escolha o pacote</h2>
+        <p className="mx-auto max-w-3xl text-sm text-gray-500 dark:text-gray-400">
+          Regra nova da loja: primeiro o usuário mantém a mensalidade base de {formatMoney(40, 'USD')} ativa por 30 dias; depois escolhe o pacote que libera os produtos desejados por mais 30 dias.
+        </p>
       </div>
 
-      <div className="flex justify-center">
-        <div className="bg-white dark:bg-[#1E293B] p-1.5 rounded-2xl flex items-center space-x-1 border border-gray-200 dark:border-gray-700 shadow-sm">
-          <button onClick={() => setShopCycle('monthly')} className={`px-5 py-2 rounded-xl text-xs font-bold transition-all ${shopCycle === 'monthly' ? 'bg-gray-100 dark:bg-[#0F172A] text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400'}`}>
-            {t.monthly}
-          </button>
-          <button onClick={() => setShopCycle('semiannual')} className={`px-5 py-2 rounded-xl text-xs font-bold transition-all flex items-center ${shopCycle === 'semiannual' ? 'bg-gray-100 dark:bg-[#0F172A] text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400'}`}>
-            {t.semiannual}
-            <span className="ml-2 bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300 text-[9px] font-extrabold px-1.5 py-0.5 rounded-full">20% OFF</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 max-w-5xl mx-auto">
-        <div className="bg-white dark:bg-[#1E293B] rounded-[28px] border border-gray-200 dark:border-[#334155] p-7 shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-3xl font-black text-gray-900 dark:text-white">Starter</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{t.shopStarterSubtitle}</p>
-              </div>
-              {isSemiannual ? (
-                <span className="inline-flex items-center bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300 text-[10px] font-extrabold px-3 py-1 rounded-full whitespace-nowrap">
-                  {t.shopSaveLabel} {formatMoney(starter.semiannualSave, 'BRL')}
-                </span>
-              ) : null}
+      <section className="rounded-[28px] border border-[#FF6B00] bg-white p-7 shadow-md dark:border-[#FF8A3D] dark:bg-[#1E293B]">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-3">
+              <h3 className="text-2xl font-black text-gray-900 dark:text-white">{membershipOffer.title}</h3>
+              <StatusBadge active={isMembershipActive} label={isMembershipActive ? 'Ativa' : 'Pendente'} />
             </div>
-
-            <p className="text-4xl font-black text-blue-600 dark:text-blue-400 mt-5">
-              {formatMoney(starterPrice, 'BRL')} <span className="text-base font-semibold text-gray-400">{t.perMonth}</span>
+            <p className="mt-2 max-w-2xl text-sm text-gray-500 dark:text-gray-400">{membershipOffer.description}</p>
+            <p className="mt-5 text-4xl font-black text-orange-500 dark:text-orange-400">{formatMoney(membershipOffer.amount, 'USD')}</p>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {isMembershipActive ? `Expira em ${membershipExpirationDate || '-'}` : 'Renovação de 30 dias da base do workspace.'}
             </p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t.shopTotalLabel} {formatMoney(starterTotal, 'BRL')}</p>
-            <span className={`inline-flex items-center text-[10px] font-bold px-3 py-1 rounded-full mt-4 ${isSemiannual ? 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-300' : 'bg-pink-50 dark:bg-pink-950/20 text-pink-600 dark:text-pink-300'}`}>
-              {isSemiannual ? `${t.shopSaveLabel} ${formatMoney(starter.semiannualSave, 'BRL')}` : t.noDiscount}
-            </span>
-
-            {renderFeatures(starterFeatures)}
           </div>
 
-          <div className="space-y-3 mt-8">
-            <button onClick={() => buyDaysSimulate('Starter Subscribe', starterTotal)} className="w-full py-3 bg-green-100 hover:bg-green-200 dark:bg-green-950/30 dark:hover:bg-green-900/40 text-green-700 dark:text-green-300 font-bold text-sm rounded-2xl shadow-sm transition-colors flex items-center justify-center gap-2">
-              <Icons.ShoppingBag /> {t.subscribe}
-            </button>
-            <button onClick={() => buyDaysSimulate('Starter Buy', starterTotal)} className="w-full py-3 bg-blue-100 hover:bg-blue-200 dark:bg-blue-950/30 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-bold text-sm rounded-2xl transition-colors flex items-center justify-center gap-2">
-              <Icons.ShoppingBag /> {t.buy}
-            </button>
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/15 dark:text-emerald-300">
+            Sem mensalidade base ativa, nenhum pacote libera acesso operacional.
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#1E293B] rounded-[28px] border-2 border-[#FF6B00] p-7 shadow-md flex flex-col justify-between relative">
-          <span className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-[#F4D18C] dark:bg-[#FFB347] text-[#8A4B00] text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wide whitespace-nowrap">
-            {t.bestOption}
-          </span>
+        <FeatureList items={[
+          'Habilita o workspace por 30 dias',
+          'Obrigatória para Copy Trading, AutoTrader e listas',
+          'Pode ser renovada independentemente do pacote'
+        ]} />
 
-          <div>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-3xl font-black text-gray-900 dark:text-white">Pro</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{t.shopProSubtitle}</p>
-              </div>
-              {isSemiannual ? (
-                <span className="inline-flex items-center bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300 text-[10px] font-extrabold px-3 py-1 rounded-full whitespace-nowrap">
-                  {t.shopSaveLabel} {formatMoney(pro.semiannualSave, 'BRL')}
-                </span>
-              ) : null}
-            </div>
+        <button
+          type="button"
+          onClick={() => buyDaysSimulate(membershipOffer)}
+          className="mt-8 w-full rounded-2xl bg-[#FF6B00] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#FF7F1F] lg:w-auto"
+        >
+          Pagar mensalidade base
+        </button>
+      </section>
 
-            <p className="text-4xl font-black text-orange-500 mt-5">
-              {formatMoney(proPrice, 'BRL')} <span className="text-base font-semibold text-gray-400">{t.perMonth}</span>
-            </p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t.shopTotalLabel} {formatMoney(proTotal, 'BRL')}</p>
-            <span className={`inline-flex items-center text-[10px] font-bold px-3 py-1 rounded-full mt-4 ${isSemiannual ? 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-300' : 'bg-pink-50 dark:bg-pink-950/20 text-pink-600 dark:text-pink-300'}`}>
-              {isSemiannual ? `${t.shopSaveLabel} ${formatMoney(pro.semiannualSave, 'BRL')}` : t.noDiscount}
-            </span>
-
-            {renderFeatures(proFeatures)}
-
-            <div className="mt-6 rounded-2xl border border-orange-200 dark:border-orange-900/40 bg-orange-50 dark:bg-orange-950/15 p-4">
-              <p className="text-sm font-extrabold text-orange-500">{t.twoAccounts}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-5">{t.shopProCallout}</p>
-            </div>
-          </div>
-
-          <div className="space-y-3 mt-8">
-            <button onClick={() => buyDaysSimulate('Pro Subscribe', proTotal)} className="w-full py-3 hover:bg-[#f59f0b] text-white font-bold text-sm rounded-2xl shadow-md transition-colors flex items-center justify-center gap-2" style={{ backgroundColor: colors.primary }}>
-              <Icons.ShoppingBag /> {t.subscribe}
-            </button>
-            <button onClick={() => buyDaysSimulate('Pro Buy', proTotal)} className="w-full py-3 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white font-bold text-sm rounded-2xl transition-colors flex items-center justify-center gap-2">
-              <Icons.ShoppingBag /> {t.buy}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="pt-2">
-        <div className="flex items-center gap-4">
-          <div className="h-px flex-1 bg-gray-200 dark:bg-[#334155]" />
-          <span className="text-[11px] font-extrabold uppercase tracking-[0.24em] text-gray-400 dark:text-gray-500">{t.shopModesTitle}</span>
-          <div className="h-px flex-1 bg-gray-200 dark:bg-[#334155]" />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-6">
-          <div className="rounded-3xl border border-green-200 dark:border-green-900/40 bg-green-50/70 dark:bg-green-950/10 p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-white dark:bg-[#0F172A] border border-green-100 dark:border-green-900/40 flex items-center justify-center text-green-500">
-                  <Icons.Activity />
-                </div>
-                <h3 className="text-base font-black text-gray-900 dark:text-white">{t.shopSubscriptionTitle}</h3>
-              </div>
-              <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300">{t.shopSubscriptionBadge}</span>
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-4 leading-6">{t.shopSubscriptionDescription}</p>
-          </div>
-
-          <div className="rounded-3xl border border-blue-200 dark:border-blue-900/40 bg-blue-50/70 dark:bg-blue-950/10 p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-white dark:bg-[#0F172A] border border-blue-100 dark:border-blue-900/40 flex items-center justify-center text-blue-500">
-                  <Icons.ShoppingBag />
-                </div>
-                <h3 className="text-base font-black text-gray-900 dark:text-white">{t.shopPurchaseTitle}</h3>
-              </div>
-              <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">{t.shopPurchaseBadge}</span>
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-4 leading-6">{t.shopPurchaseDescription}</p>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        {packages.map((pkg, index) => (
+          <PackageCard
+            key={pkg.packageCode}
+            title={pkg.title}
+            price={pkg.amount}
+            description={pkg.description}
+            statusLabel={pkg.statusLabel}
+            isActive={pkg.isActive}
+            note={pkg.note}
+            features={pkg.features}
+            ctaLabel="Comprar pacote de 30 dias"
+            tone={index === 2 ? 'highlight' : 'default'}
+            formatMoney={formatMoney}
+            onBuy={() => buyDaysSimulate(pkg)}
+          />
+        ))}
       </div>
 
       <section className="rounded-[28px] border border-dashed border-[#FF6B00] bg-white p-7 shadow-sm dark:border-[#FF8A3D] dark:bg-[#1E293B]">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <span className="inline-flex items-center rounded-full bg-orange-50 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#FF6B00] dark:bg-orange-950/30 dark:text-[#FF8A3D]">
-              Conteúdo Avulso
-            </span>
-            <h3 className="mt-3 text-2xl font-black text-gray-900 dark:text-white">Sinais Diários OB</h3>
-            <p className="mt-2 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
-              Produto separado do AutoTrader (Lista). Libera o conteúdo diário publicado pelo admin dentro da aba AutoTrader (Lista), sem liberar automação.
-            </p>
-          </div>
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-xs font-semibold text-gray-500 dark:border-[#334155] dark:bg-[#0B1220] dark:text-[#94A3B8]">
-            Ativação nesta fase: pelo admin
-          </div>
-        </div>
-
-        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+        <h3 className="text-lg font-black text-gray-900 dark:text-white">Como o acesso fica distribuído</h3>
+        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-[#334155] dark:bg-[#0B1220]">
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">Mensal</p>
-            <p className="mt-2 text-3xl font-black text-gray-900 dark:text-white">{formatMoney(signalsListProduct.monthly, 'BRL')}</p>
-            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Acesso ao conteúdo diário por 30 dias.</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">Pacote 1</p>
+            <p className="mt-2 text-sm font-bold text-gray-900 dark:text-white">Copy Trading</p>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Mensalidade base + pacote de {formatMoney(40, 'USD')}.</p>
           </div>
-          <div className="rounded-2xl border border-green-200 bg-green-50 p-5 dark:border-green-900/40 dark:bg-green-950/10">
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-green-700 dark:text-green-300">Trimestral</p>
-            <p className="mt-2 text-3xl font-black text-gray-900 dark:text-white">{formatMoney(signalsListProduct.quarterly, 'BRL')}</p>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Equivalente a 3 meses com 20% de desconto sobre o valor mensal.</p>
+          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-[#334155] dark:bg-[#0B1220]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">Pacote 2</p>
+            <p className="mt-2 text-sm font-bold text-gray-900 dark:text-white">Automatizador + 3 Listas</p>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Mensalidade base + pacote de {formatMoney(60, 'USD')}.</p>
           </div>
-        </div>
-
-        <div className="mt-6 flex flex-wrap gap-3">
-          <button onClick={() => buyDaysSimulate('Daily Signals Monthly', signalsListProduct.monthly)} className="rounded-2xl bg-[#FF6B00] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#FF7F1F]">
-            Solicitar mensal
-          </button>
-          <button onClick={() => buyDaysSimulate('Daily Signals Quarterly', signalsListProduct.quarterly)} className="rounded-2xl bg-gray-100 px-5 py-3 text-sm font-bold text-gray-800 transition-colors hover:bg-gray-200 dark:bg-[#0B1220] dark:text-white dark:hover:bg-[#111827]">
-            Solicitar trimestral
-          </button>
+          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-[#334155] dark:bg-[#0B1220]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">Pacote 3</p>
+            <p className="mt-2 text-sm font-bold text-gray-900 dark:text-white">Acesso a todos os produtos</p>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Mensalidade base + pacote de {formatMoney(80, 'USD')}.</p>
+          </div>
         </div>
       </section>
     </div>

@@ -52,6 +52,19 @@ export async function getWorkspaceAutomatorEntitlement(workspaceId) {
   return getWorkspaceEntitlement(workspaceId, 'signals_automator');
 }
 
+export async function purchaseWorkspacePackage(workspaceId, packageCode, days = 30, note = '') {
+  assertSupabase();
+  const result = await supabase.rpc('purchase_workspace_package', {
+    p_workspace_id: workspaceId,
+    p_package_code: packageCode,
+    p_days: days,
+    p_note: note || ''
+  });
+
+  if (result.error) throw result.error;
+  return result.data;
+}
+
 export async function adminGrantSignalsEntitlement(workspaceId, days, note) {
   assertSupabase();
   const result = await supabase.rpc('grant_signals_list_access', {

@@ -13,6 +13,56 @@ function isMissingColumnError(error, columnName) {
   return message.toLowerCase().includes(columnName.toLowerCase());
 }
 
+function isEntitlementActive(entitlement) {
+  if (!entitlement || entitlement.status !== 'active') return false;
+  if (!entitlement.expires_at) return true;
+  return new Date(entitlement.expires_at).getTime() > Date.now();
+}
+
+function resolveWorkspacePackage(entitlements = {}) {
+  const hasCopyTrading = isEntitlementActive(entitlements.copyTrading);
+  const hasSignalsDailyList = isEntitlementActive(entitlements.signalsDailyList);
+  const hasSignalsAutomator = isEntitlementActive(entitlements.signalsAutomator);
+
+  if (hasCopyTrading && hasSignalsDailyList && hasSignalsAutomator) {
+    return {
+      code: 'full_access_package',
+      label: 'Full Access',
+      status: 'active'
+    };
+  }
+
+  if (!hasCopyTrading && hasSignalsDailyList && hasSignalsAutomator) {
+    return {
+      code: 'automator_lists_package',
+      label: 'Automatizador + 3 Listas',
+      status: 'active'
+    };
+  }
+
+  if (hasCopyTrading && !hasSignalsDailyList && !hasSignalsAutomator) {
+    return {
+      code: 'copy_trading_package',
+      label: 'Copy Trading',
+      status: 'active'
+    };
+  }
+
+  if (!hasCopyTrading && !hasSignalsDailyList && !hasSignalsAutomator) {
+    return {
+      code: '',
+      label: 'Nenhum pacote ativo',
+      status: 'inactive'
+    };
+  }
+
+  return {
+    code: 'custom',
+    label: 'Pacote customizado',
+    status: 'partial'
+  };
+}
+
 async function listAdminProfiles() {
   const withTestFlag = await supabase
     .from('profiles')
@@ -70,7 +120,7 @@ async function getAdminProfileById(profileId) {
 export async function getAdminOverview() {
   assertSupabase();
 
-  const [profilesResult, workspacesResult, licensesResult, runtimeResult, brokersResult, signalListsResult, liveOperationsResult] = await Promise.all([
+  const [profilesResult, workspacesResult, licensesResult, runtimeResult, brokersResult, signalListsResult, liveOperationsResult, entitlementsResult] = await Promise.all([
     listAdminProfiles(),
     supabase
       .from('app_workspaces')
@@ -90,7 +140,10 @@ export async function getAdminOverview() {
       .select('workspace_id, total_count, valid_count'),
     supabase
       .from('live_operations')
-      .select('workspace_id, profit_loss, status')
+      .select('workspace_id, profit_loss, status'),
+    supabase
+      .from('workspace_entitlements')
+      .select('workspace_id, product_code, status, expires_at')
   ]);
 
   if (profilesResult.error) throw profilesResult.error;
@@ -100,6 +153,7 @@ export async function getAdminOverview() {
   if (brokersResult.error) throw brokersResult.error;
   if (signalListsResult.error) throw signalListsResult.error;
   if (liveOperationsResult.error) throw liveOperationsResult.error;
+  if (entitlementsResult.error) throw entitlementsResult.error;
 
   const profiles = profilesResult.data || [];
   const workspaces = workspacesResult.data || [];
@@ -108,6 +162,7 @@ export async function getAdminOverview() {
   const brokers = brokersResult.data || [];
   const signalLists = signalListsResult.data || [];
   const liveOperations = liveOperationsResult.data || [];
+  const entitlements = entitlementsResult.data || [];
 
   const profileMap = new Map(profiles.map((profile) => [profile.id, profile]));
   const licenseMap = new Map(licenses.map((license) => [license.workspace_id, mapLicenseRow(license)]));
@@ -144,6 +199,20 @@ export async function getAdminOverview() {
     acc[operation.workspace_id] = current;
     return acc;
   }, {});
+  const entitlementsByWorkspace = entitlements.reduce((acc, row) => {
+    const current = acc[row.workspace_id] || {
+      copyTrading: null,
+      signalsDailyList: null,
+      signalsAutomator: null
+    };
+
+    if (row.product_code === 'copy_trading') current.copyTrading = row;
+    if (row.product_code === 'signals_daily_list') current.signalsDailyList = row;
+    if (row.product_code === 'signals_automator') current.signalsAutomator = row;
+
+    acc[row.workspace_id] = current;
+    return acc;
+  }, {});
 
   const workspaceMetrics = workspaces.map((workspace) => {
     const brokerMetrics = brokerMetricsByWorkspace[workspace.id] || { total: 0, linked: 0 };
@@ -152,10 +221,17 @@ export async function getAdminOverview() {
     const totalFinished = operationsMetrics.wins + operationsMetrics.losses;
     const accuracy = totalFinished ? Math.round((operationsMetrics.wins / totalFinished) * 1000) / 10 : 0;
     const license = licenseMap.get(workspace.id) || mapLicenseRow(null);
+    const entitlementGroup = entitlementsByWorkspace[workspace.id] || {
+      copyTrading: null,
+      signalsDailyList: null,
+      signalsAutomator: null
+    };
+    const packageInfo = resolveWorkspacePackage(entitlementGroup);
 
     return {
       workspaceId: workspace.id,
       license,
+      packageInfo,
       subscriptionLabel: `${license.accessType}:${license.status}`,
       runtimeStatus: runtimeMap.get(workspace.id) || 'offline',
       totalBrokersCount: brokerMetrics.total,
@@ -216,6 +292,9 @@ export async function getAdminOverview() {
       remainingDays: metricsByWorkspaceId.get(workspace.id)?.license.remainingDays || 0,
       licenseStatus: metricsByWorkspaceId.get(workspace.id)?.license.status || 'expired',
       licenseAccessType: metricsByWorkspaceId.get(workspace.id)?.license.accessType || 'trial',
+      packageCode: metricsByWorkspaceId.get(workspace.id)?.packageInfo?.code || '',
+      packageLabel: metricsByWorkspaceId.get(workspace.id)?.packageInfo?.label || 'Nenhum pacote ativo',
+      packageStatus: metricsByWorkspaceId.get(workspace.id)?.packageInfo?.status || 'inactive',
       signalListsCount: metricsByWorkspaceId.get(workspace.id)?.signalListsCount || 0,
       wins: metricsByWorkspaceId.get(workspace.id)?.wins || 0,
       losses: metricsByWorkspaceId.get(workspace.id)?.losses || 0,
@@ -241,7 +320,7 @@ export async function updateAdminProfileTestAccount(userId, isTestAccount) {
 export async function getAdminWorkspaceDetails(workspaceId) {
   assertSupabase();
 
-  const [workspaceResult, preferencesResult, runtimeResult, brokersResult, settingsResult, licenseResult, signalListsResult, liveOperationsResult, licenseEventsResult, dailyEntitlementsResult, automatorEntitlementsResult] = await Promise.all([
+  const [workspaceResult, preferencesResult, runtimeResult, brokersResult, settingsResult, licenseResult, signalListsResult, liveOperationsResult, licenseEventsResult, dailyEntitlementsResult, automatorEntitlementsResult, copyEntitlementResult] = await Promise.all([
     supabase
       .from('app_workspaces')
       .select('id, slug, name, owner_user_id, created_at')
@@ -298,6 +377,12 @@ export async function getAdminWorkspaceDetails(workspaceId) {
       .select('*')
       .eq('workspace_id', workspaceId)
       .eq('product_code', 'signals_automator')
+      .maybeSingle(),
+    supabase
+      .from('workspace_entitlements')
+      .select('*')
+      .eq('workspace_id', workspaceId)
+      .eq('product_code', 'copy_trading')
       .maybeSingle()
   ]);
 
@@ -312,6 +397,7 @@ export async function getAdminWorkspaceDetails(workspaceId) {
   if (licenseEventsResult.error) throw licenseEventsResult.error;
   if (dailyEntitlementsResult.error) throw dailyEntitlementsResult.error;
   if (automatorEntitlementsResult.error) throw automatorEntitlementsResult.error;
+  if (copyEntitlementResult.error) throw copyEntitlementResult.error;
 
   const ownerResult = await getAdminProfileById(workspaceResult.data.owner_user_id);
 
@@ -335,6 +421,13 @@ export async function getAdminWorkspaceDetails(workspaceId) {
   }, { operations: 0, wins: 0, losses: 0 });
 
   const totalFinished = operationsMetrics.wins + operationsMetrics.losses;
+  const entitlementGroup = {
+    copyTrading: copyEntitlementResult.data || null,
+    signalsDailyList: dailyEntitlementsResult.data || null,
+    signalsAutomator: automatorEntitlementsResult.data || null
+  };
+  const packageInfo = resolveWorkspacePackage(entitlementGroup);
+  const license = mapLicenseRow(licenseResult.data);
 
   return {
     workspace: {
@@ -353,12 +446,21 @@ export async function getAdminWorkspaceDetails(workspaceId) {
     preferences: preferencesResult.data || null,
     runtime: runtimeResult.data || null,
     brokers: brokersResult.data || [],
-    license: mapLicenseRow(licenseResult.data),
+    license,
+    membership: {
+      isActive: license.status === 'active' && license.remainingDays > 0,
+      label: license.status === 'active' && license.remainingDays > 0 ? 'Mensalidade ativa' : 'Mensalidade inativa',
+      remainingDays: license.remainingDays,
+      expirationDate: license.expirationDate,
+      planName: license.planName
+    },
     licenseHistory: licenseEventsResult.data || [],
     entitlements: {
+      copyTrading: copyEntitlementResult.data || null,
       signalsDailyList: dailyEntitlementsResult.data || null,
       signalsAutomator: automatorEntitlementsResult.data || null
     },
+    packageInfo,
     performance: {
       signalListsCount: signalMetrics.lists,
       totalSignals: signalMetrics.totalSignals,

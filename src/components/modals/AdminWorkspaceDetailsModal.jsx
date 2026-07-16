@@ -35,6 +35,18 @@ function getRuntimeBadgeClass(status) {
   return 'bg-gray-100 text-gray-600 dark:bg-[#1E293B] dark:text-[#CBD5E1]';
 }
 
+function getStatusPillClass(active, warning = false) {
+  if (active) {
+    return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300';
+  }
+
+  if (warning) {
+    return 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300';
+  }
+
+  return 'bg-gray-100 text-gray-600 dark:bg-[#1E293B] dark:text-[#CBD5E1]';
+}
+
 function formatEntitlementDate(value) {
   if (!value) return '-';
   return new Date(value).toLocaleDateString('pt-BR');
@@ -65,12 +77,18 @@ export function AdminWorkspaceDetailsModal({
   const currentTimezone = details?.preferences?.selected_timezone || '-';
   const runtimeStatus = details?.runtime?.bot_status || 'offline';
   const licenseDays = details?.license?.remainingDays || 0;
+  const membership = details?.membership || null;
+  const packageInfo = details?.packageInfo || null;
+  const copyEntitlement = details?.entitlements?.copyTrading || null;
   const dailyEntitlement = details?.entitlements?.signalsDailyList || null;
   const automatorEntitlement = details?.entitlements?.signalsAutomator || null;
 
+  const membershipActive = Boolean(membership?.isActive);
   const dailyEntitlementActive = dailyEntitlement?.status === 'active' && (!dailyEntitlement?.expires_at || new Date(dailyEntitlement.expires_at).getTime() > Date.now());
   const automatorEntitlementActive = automatorEntitlement?.status === 'active' && (!automatorEntitlement?.expires_at || new Date(automatorEntitlement.expires_at).getTime() > Date.now());
+  const copyEntitlementActive = copyEntitlement?.status === 'active' && (!copyEntitlement?.expires_at || new Date(copyEntitlement.expires_at).getTime() > Date.now());
 
+  const copyEntitlementLabel = copyEntitlementActive ? 'Ativo' : 'Inativo';
   const dailyEntitlementLabel = dailyEntitlementActive ? 'Ativo' : 'Inativo';
   const automatorEntitlementLabel = automatorEntitlementActive ? 'Ativo' : 'Inativo';
 
@@ -169,6 +187,66 @@ export function AdminWorkspaceDetailsModal({
                   <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">{t.operation}</p>
                   <p className="mt-2 text-2xl font-black text-gray-900 dark:text-white">{details.performance?.operationsCount || 0}</p>
                   <p className="mt-1 text-xs text-gray-500 dark:text-[#94A3B8]">{details.license?.planName || 'trial'}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-[#334155] dark:bg-[#111827]">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-900 dark:text-white">Mensalidade base</h4>
+                      <p className="mt-1 text-xs text-gray-500 dark:text-[#94A3B8]">
+                        A base do workspace precisa estar ativa para qualquer pacote operacional funcionar.
+                      </p>
+                    </div>
+                    <span className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] ${getStatusPillClass(membershipActive)}`}>
+                      {membership?.label || 'Sem mensalidade'}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-3 dark:border-[#1F2A3A] dark:bg-[#0B1220]">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">Plano</p>
+                      <p className="mt-1 text-sm font-bold text-gray-900 dark:text-white">{membership?.planName || '-'}</p>
+                    </div>
+                    <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-3 dark:border-[#1F2A3A] dark:bg-[#0B1220]">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">Dias restantes</p>
+                      <p className="mt-1 text-sm font-bold text-gray-900 dark:text-white">{membership?.remainingDays ?? 0}</p>
+                    </div>
+                    <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-3 dark:border-[#1F2A3A] dark:bg-[#0B1220]">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">Expira em</p>
+                      <p className="mt-1 text-sm font-bold text-gray-900 dark:text-white">{membership?.expirationDate || '-'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-[#334155] dark:bg-[#111827]">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-900 dark:text-white">Pacote atual</h4>
+                      <p className="mt-1 text-xs text-gray-500 dark:text-[#94A3B8]">
+                        Pacote operacional derivado dos entitlements ativos do workspace.
+                      </p>
+                    </div>
+                    <span className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] ${getStatusPillClass(packageInfo?.status === 'active', packageInfo?.status === 'partial')}`}>
+                      {packageInfo?.label || 'Nenhum pacote ativo'}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-3 dark:border-[#1F2A3A] dark:bg-[#0B1220]">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">Copy Trading</p>
+                      <p className="mt-1 text-sm font-bold text-gray-900 dark:text-white">{copyEntitlementLabel}</p>
+                    </div>
+                    <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-3 dark:border-[#1F2A3A] dark:bg-[#0B1220]">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">AutoTrader</p>
+                      <p className="mt-1 text-sm font-bold text-gray-900 dark:text-white">{automatorEntitlementLabel}</p>
+                    </div>
+                    <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-3 dark:border-[#1F2A3A] dark:bg-[#0B1220]">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">Listas</p>
+                      <p className="mt-1 text-sm font-bold text-gray-900 dark:text-white">{dailyEntitlementLabel}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -274,6 +352,18 @@ export function AdminWorkspaceDetailsModal({
                 </div>
 
                 <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-[#334155] dark:bg-[#0B1220]">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">Copy Trading</p>
+                        <p className="mt-1 text-xs text-gray-500 dark:text-[#94A3B8]">
+                          Status: <span className={`font-bold ${copyEntitlementActive ? 'text-emerald-600' : 'text-gray-500 dark:text-[#94A3B8]'}`}>{copyEntitlementLabel}</span>
+                          {' '}• Expira em: {formatEntitlementDate(copyEntitlement?.expires_at)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-[#334155] dark:bg-[#0B1220]">
                     <div className="flex items-center justify-between gap-3">
                       <div>
