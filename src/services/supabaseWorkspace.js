@@ -1,5 +1,8 @@
-import { DEFAULT_SETTINGS_CONFIG } from '../constants/defaultWorkspace';
+import { DEFAULT_BROKERS, DEFAULT_SETTINGS_CONFIG } from '../constants/defaultWorkspace';
 import { supabase, supabaseEnabled, getWorkspaceSlug } from '../lib/supabase/client';
+
+const SUPPORTED_BROKER_KEYS = new Set(DEFAULT_BROKERS.map((broker) => broker.id));
+const SUPPORTED_BROKER_NAMES = new Set(DEFAULT_BROKERS.map((broker) => broker.name));
 
 function assertSupabase() {
   if (!supabaseEnabled || !supabase) {
@@ -28,6 +31,9 @@ function mapBrokerRow(row) {
 
 function normalizeSettingsConfig(settings) {
   const normalized = { ...settings };
+  if (!SUPPORTED_BROKER_NAMES.has(normalized.broker)) {
+    normalized.broker = DEFAULT_SETTINGS_CONFIG.broker;
+  }
   if (normalized.accountType === 'Practice') {
     normalized.accountType = 'Demo';
   }
@@ -81,7 +87,9 @@ export async function getWorkspaceBootstrap(workspaceId) {
   return {
     preferences: preferencesResult.data,
     runtime: runtimeResult.data,
-    brokers: (brokersResult.data || []).map(mapBrokerRow),
+    brokers: (brokersResult.data || [])
+      .filter((row) => SUPPORTED_BROKER_KEYS.has(row.broker_key))
+      .map(mapBrokerRow),
     settings: {
       ...normalizeSettingsConfig({
         ...DEFAULT_SETTINGS_CONFIG,

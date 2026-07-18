@@ -14,8 +14,8 @@ export function SettingsTab({ config, setConfig, showToast, playAlertSound, t, c
               <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Corretora *</label>
               <select value={config.broker} onChange={(e) => setConfig({ ...config, broker: e.target.value })} className="w-full border border-gray-200 dark:border-gray-700 rounded-xl p-2.5 text-xs bg-gray-50 dark:bg-[#334155] dark:text-white focus:ring-1 focus:ring-[#FF6B00] focus:outline-none">
                 <option value="IQ Option">IQ Option</option>
-                <option value="Quotex">Quotex</option>
-                <option value="Pocket Option">Pocket Option</option>
+                <option value="Exnova">Exnova</option>
+                <option value="CasaTrade">CasaTrade</option>
               </select>
             </div>
 
