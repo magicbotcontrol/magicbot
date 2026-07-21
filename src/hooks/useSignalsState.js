@@ -2,7 +2,23 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getSignalsByDate, saveSignalList } from '../services/supabaseSignals';
 import { getDailySignalFeed, listDailySignalFeedsByDate } from '../services/supabaseSignalFeed';
 import { listWorkspaceSignalExclusions, setWorkspaceSignalIgnored } from '../services/supabaseSignalExclusions';
-import { clearExpiredTradeJobs, createAutomationCommand, enqueueTradeJobs, ensureBotInstances, getAutomationWorkerNode, getTradeJobsSummary, listAutomationCommands, listBotInstances, listTradeJobAttempts, listTradeJobEvents, listTradeJobs, requeueFailedTradeJobs, stopWorkspaceBot, updateBotInstanceExecutionConfig, updateBotInstanceTolerance } from '../services/supabaseTradeJobs';
+import {
+  clearExpiredTradeJobs,
+  createAutomationCommand,
+  enqueueTradeJobs,
+  ensureBotInstances,
+  getAutomationWorkerNode,
+  getTradeJobsSummary,
+  listAutomationCommands,
+  listBotInstances,
+  listTradeJobAttempts,
+  listTradeJobEvents,
+  listTradeJobs,
+  requeueFailedTradeJobs,
+  stopWorkspaceBot,
+  updateBotInstanceExecutionConfig,
+  updateBotInstanceTolerance
+} from '../services/supabaseTradeJobs';
 import { getWorkspaceBootstrap, updateWorkspaceRuntime } from '../services/supabaseWorkspace';
 import { parseSignalsText } from '../utils/signalParser';
 
@@ -124,18 +140,29 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
       ? {
         label: 'Sessao conectada',
         hint: 'Override QA/dev: sessao operacional conectada.',
-        connected_at: new Date().toISOString()
+        connected_at: new Date().toISOString(),
+        session_source: 'iqoption_real',
+        account_mode_detected: base?.account_mode_detected || selectedBotInstance?.account_type || 'Demo',
+        account_mode_confirmed: base?.account_mode_confirmed || selectedBotInstance?.confirmed_account_type || selectedBotInstance?.account_type || 'Demo',
+        account_confirmation_required: true,
+        account_confirmation_status: 'confirmed',
+        can_trade: true,
+        block_reason: ''
       }
       : qaState === 'session_login_failed'
         ? {
           label: 'Falha no login',
           hint: 'Override QA/dev: falha de login simulada.',
           failed_at: new Date().toISOString(),
-          last_error: 'qa_override_invalid_credentials'
+          last_error: 'qa_override_invalid_credentials',
+          can_trade: false,
+          block_reason: 'broker_session_login_failed'
         }
         : {
           label: 'Credencial pronta',
-          hint: 'Override QA/dev: aguardando reconexao da sessao.'
+          hint: 'Override QA/dev: aguardando reconexao da sessao.',
+          can_trade: false,
+          block_reason: 'account_confirmation_required'
         };
 
     return {
@@ -148,6 +175,11 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
   }, [selectedBotInstance?.last_sync_payload?.broker_session, brokerSessionQaState]);
   const brokerSessionState = String(brokerSession?.state || '').toLowerCase();
   const isBrokerSessionConnected = brokerSessionState === 'session_connected';
+  const brokerSessionSource = String(brokerSession?.session_source || '').toLowerCase();
+  const brokerAccountConfirmationStatus = String(brokerSession?.account_confirmation_status || '').toLowerCase();
+  const isBrokerSessionReal = brokerSessionSource === 'iqoption_real';
+  const isBrokerAccountConfirmed = brokerAccountConfirmationStatus === 'confirmed';
+  const brokerCanTrade = Boolean(brokerSession?.can_trade);
   const isBrokerSessionQaEnabled = Boolean(import.meta.env.DEV);
 
   useEffect(() => {
@@ -942,6 +974,9 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
       && executableSignalsCount > 0
       && (sourceMode !== 'published' ? true : Boolean(selectedAsset))
       && isBrokerSessionConnected
+      && isBrokerSessionReal
+      && isBrokerAccountConfirmed
+      && brokerCanTrade
   );
 
   const handleStartBot = async () => {
@@ -959,6 +994,21 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
           ? 'Falha no login da corretora. Revise a vinculacao em Minha Conta antes de iniciar o AutoTrader.'
           : 'A corretora precisa estar conectada antes de iniciar o AutoTrader.';
         showToast(sessionMessage);
+        return;
+      }
+
+      if (!isBrokerSessionReal) {
+        showToast('O worker precisa estar com o adapter real da IQ Option para liberar a automação.');
+        return;
+      }
+
+      if (!isBrokerAccountConfirmed) {
+        showToast('Confirme a conta Demo/Real em Minha Conta antes de iniciar o AutoTrader.');
+        return;
+      }
+
+      if (!brokerCanTrade) {
+        showToast('A sessão operacional ainda não está apta para operar automaticamente.');
         return;
       }
 
@@ -1390,6 +1440,11 @@ export function useSignalsState({ workspaceId, isLoggedIn, hasAutomatorAccess, h
     brokerSession,
     brokerSessionState,
     isBrokerSessionConnected,
+    brokerSessionSource,
+    brokerAccountConfirmationStatus,
+    isBrokerSessionReal,
+    isBrokerAccountConfirmed,
+    brokerCanTrade,
     isBrokerSessionQaEnabled,
     brokerSessionQaState,
     setBrokerSessionQaState,

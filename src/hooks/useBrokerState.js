@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getWorkspaceBootstrap, invokeSecureBrokerLink, updateSelectedTimezone } from '../services/supabaseWorkspace';
-import { createAutomationCommand, ensureBotInstances, listBotInstances } from '../services/supabaseTradeJobs';
+import {
+  clearBotInstanceOperationalAccountConfirmation,
+  confirmBotInstanceOperationalAccount,
+  createAutomationCommand,
+  ensureBotInstances,
+  listBotInstances
+} from '../services/supabaseTradeJobs';
+import { normalizeBrokerSessionSnapshot } from '../utils/brokerSessionSnapshot';
 
 function parseTimestamp(value) {
   const time = Date.parse(String(value || ''));
@@ -22,14 +29,24 @@ function getLatestBrokerSession(botInstances, brokerId) {
     }))
     .sort((a, b) => b.checkedAt - a.checkedAt);
 
-  return matches[0]?.session || null;
+  return matches[0] ? normalizeBrokerSessionSnapshot(matches[0].session, matches[0].bot) : null;
 }
 
 function mergeBrokersWithRuntimeState(brokers, botInstances) {
-  return (brokers || []).map((broker) => ({
-    ...broker,
-    brokerSession: getLatestBrokerSession(botInstances, broker.id)
-  }));
+  return (brokers || []).map((broker) => {
+    const matchingBots = (botInstances || [])
+      .filter((bot) => String(bot?.broker_key || '').trim().toLowerCase() === String(broker?.id || '').trim().toLowerCase())
+      .sort((a, b) => parseTimestamp(b?.updated_at) - parseTimestamp(a?.updated_at));
+    const primaryBot = matchingBots[0] || null;
+    return {
+      ...broker,
+      botSlot: primaryBot?.slot || null,
+      botCount: matchingBots.length,
+      confirmedAccountType: primaryBot?.confirmed_account_type || null,
+      confirmedAccountAt: primaryBot?.confirmed_account_at || null,
+      brokerSession: getLatestBrokerSession(botInstances, broker.id)
+    };
+  });
 }
 
 function sleep(ms) {
@@ -45,6 +62,28 @@ export function useBrokerState(workspaceId, showToast, playAlertSound, t) {
   const [brokerEmailInput, setBrokerEmailInput] = useState('');
   const [brokerPassInput, setBrokerPassInput] = useState('');
   const [isLinkingLoading, setIsLinkingLoading] = useState(false);
+  const [brokerActionLoading, setBrokerActionLoading] = useState({});
+
+  const setBrokerLoadingState = useCallback((brokerId, action, value) => {
+    const normalizedBrokerId = String(brokerId || '').trim().toLowerCase();
+    if (!normalizedBrokerId || !action) return;
+    setBrokerActionLoading((prev) => ({
+      ...prev,
+      [normalizedBrokerId]: {
+        ...(prev[normalizedBrokerId] || {}),
+        [action]: Boolean(value)
+      }
+    }));
+  }, []);
+
+  const listBrokerBotInstances = useCallback(async (brokerId) => {
+    if (!workspaceId || !brokerId) {
+      return [];
+    }
+    await ensureBotInstances(workspaceId);
+    const rows = await listBotInstances(workspaceId);
+    return (rows || []).filter((bot) => String(bot?.broker_key || '').trim().toLowerCase() === String(brokerId).trim().toLowerCase());
+  }, [workspaceId]);
 
   const syncAccountRuntimeState = useCallback(async () => {
     if (!workspaceId) {
@@ -92,13 +131,8 @@ export function useBrokerState(workspaceId, showToast, playAlertSound, t) {
   }, [workspaceId]);
 
   const queueBrokerSessionSync = useCallback(async (brokerId) => {
-    if (!workspaceId || !brokerId) {
-      return [];
-    }
-
-    await ensureBotInstances(workspaceId);
-    const botInstances = await listBotInstances(workspaceId);
-    const matchingBots = (botInstances || []).filter((bot) => String(bot?.broker_key || '').trim().toLowerCase() === String(brokerId).trim().toLowerCase());
+    if (!workspaceId || !brokerId) return [];
+    const matchingBots = await listBrokerBotInstances(brokerId);
 
     if (!matchingBots.length) {
       return [];
@@ -116,7 +150,7 @@ export function useBrokerState(workspaceId, showToast, playAlertSound, t) {
     })));
 
     return commands.filter(Boolean);
-  }, [workspaceId]);
+  }, [workspaceId, listBrokerBotInstances]);
 
   useEffect(() => {
     if (!workspaceId) {
@@ -235,6 +269,102 @@ export function useBrokerState(workspaceId, showToast, playAlertSound, t) {
       });
   };
 
+  const syncBrokerOperationalSession = useCallback(async (brokerId) => {
+    if (!workspaceId || !brokerId) {
+      showToast(t.supabaseConnectionError);
+      return false;
+    }
+
+    setBrokerLoadingState(brokerId, 'sync', true);
+    try {
+      const syncCommands = await queueBrokerSessionSync(brokerId);
+      const commandIds = syncCommands.map((command) => command?.id).filter(Boolean);
+      if (commandIds.length) {
+        await waitForBrokerSessionSync({ brokerId, commandIds });
+      }
+      await syncAccountRuntimeState();
+      showToast('Sincronização operacional enviada ao worker.');
+      return true;
+    } catch {
+      showToast(t.supabaseSaveError);
+      return false;
+    } finally {
+      setBrokerLoadingState(brokerId, 'sync', false);
+    }
+  }, [workspaceId, queueBrokerSessionSync, waitForBrokerSessionSync, syncAccountRuntimeState, showToast, t, setBrokerLoadingState]);
+
+  const confirmBrokerOperationalAccount = useCallback(async (brokerId, accountType) => {
+    const normalizedBrokerId = String(brokerId || '').trim().toLowerCase();
+    const normalizedAccountType = accountType === 'Real' ? 'Real' : 'Demo';
+    const broker = brokersList.find((item) => item.id === normalizedBrokerId);
+    const detectedAccountType = broker?.brokerSession?.account_mode_detected || null;
+
+    if (!workspaceId || !normalizedBrokerId) {
+      showToast(t.supabaseConnectionError);
+      return false;
+    }
+
+    if (detectedAccountType && detectedAccountType !== normalizedAccountType) {
+      showToast(`A sessão detectou a conta ${detectedAccountType}. Confirme apenas a conta detectada ou resincronize a corretora.`);
+      return false;
+    }
+
+    setBrokerLoadingState(normalizedBrokerId, `confirm_${normalizedAccountType.toLowerCase()}`, true);
+    try {
+      const matchingBots = await listBrokerBotInstances(normalizedBrokerId);
+      if (!matchingBots.length) {
+        showToast('Nenhum bot configurado para essa corretora.');
+        return false;
+      }
+
+      await Promise.all(matchingBots.map((bot) => confirmBotInstanceOperationalAccount({
+        workspaceId,
+        slot: Number(bot.slot),
+        accountType: normalizedAccountType
+      })));
+
+      await syncBrokerOperationalSession(normalizedBrokerId);
+      showToast(`Conta ${normalizedAccountType} confirmada para execução automática.`);
+      return true;
+    } catch {
+      showToast(t.supabaseSaveError);
+      return false;
+    } finally {
+      setBrokerLoadingState(normalizedBrokerId, `confirm_${normalizedAccountType.toLowerCase()}`, false);
+    }
+  }, [workspaceId, brokersList, listBrokerBotInstances, syncBrokerOperationalSession, showToast, t, setBrokerLoadingState]);
+
+  const clearBrokerOperationalAccount = useCallback(async (brokerId) => {
+    const normalizedBrokerId = String(brokerId || '').trim().toLowerCase();
+    if (!workspaceId || !normalizedBrokerId) {
+      showToast(t.supabaseConnectionError);
+      return false;
+    }
+
+    setBrokerLoadingState(normalizedBrokerId, 'clear_confirmation', true);
+    try {
+      const matchingBots = await listBrokerBotInstances(normalizedBrokerId);
+      if (!matchingBots.length) {
+        showToast('Nenhum bot configurado para essa corretora.');
+        return false;
+      }
+
+      await Promise.all(matchingBots.map((bot) => clearBotInstanceOperationalAccountConfirmation({
+        workspaceId,
+        slot: Number(bot.slot)
+      })));
+
+      await syncBrokerOperationalSession(normalizedBrokerId);
+      showToast('Confirmação operacional removida.');
+      return true;
+    } catch {
+      showToast(t.supabaseSaveError);
+      return false;
+    } finally {
+      setBrokerLoadingState(normalizedBrokerId, 'clear_confirmation', false);
+    }
+  }, [workspaceId, listBrokerBotInstances, syncBrokerOperationalSession, showToast, t, setBrokerLoadingState]);
+
   const saveSelectedTimezone = async (timezone) => {
     if (!workspaceId) {
       showToast(t.supabaseConnectionError);
@@ -263,8 +393,12 @@ export function useBrokerState(workspaceId, showToast, playAlertSound, t) {
     brokerPassInput,
     setBrokerPassInput,
     isLinkingLoading,
+    brokerActionLoading,
     triggerLinkBroker,
     submitLinkBroker,
-    disconnectBroker
+    disconnectBroker,
+    syncBrokerOperationalSession,
+    confirmBrokerOperationalAccount,
+    clearBrokerOperationalAccount
   };
 }

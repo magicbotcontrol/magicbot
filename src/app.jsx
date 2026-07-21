@@ -275,6 +275,11 @@ export default function App() {
             brokerSession={signals.brokerSession}
             brokerSessionState={signals.brokerSessionState}
             isBrokerSessionConnected={signals.isBrokerSessionConnected}
+            brokerSessionSource={signals.brokerSessionSource}
+            brokerAccountConfirmationStatus={signals.brokerAccountConfirmationStatus}
+            isBrokerSessionReal={signals.isBrokerSessionReal}
+            isBrokerAccountConfirmed={signals.isBrokerAccountConfirmed}
+            brokerCanTrade={signals.brokerCanTrade}
             isBrokerSessionQaEnabled={signals.isBrokerSessionQaEnabled}
             brokerSessionQaState={signals.brokerSessionQaState}
             setBrokerSessionQaState={signals.setBrokerSessionQaState}
@@ -394,6 +399,10 @@ export default function App() {
             brokersList={broker.brokersList}
             triggerLinkBroker={broker.triggerLinkBroker}
             disconnectBroker={broker.disconnectBroker}
+            syncBrokerOperationalSession={broker.syncBrokerOperationalSession}
+            confirmBrokerOperationalAccount={broker.confirmBrokerOperationalAccount}
+            clearBrokerOperationalAccount={broker.clearBrokerOperationalAccount}
+            brokerActionLoading={broker.brokerActionLoading}
             showToast={ui.showToast}
             t={ui.t}
           />

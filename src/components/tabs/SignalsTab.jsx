@@ -205,6 +205,11 @@ export function SignalsTab({
   brokerSession,
   brokerSessionState,
   isBrokerSessionConnected,
+  brokerSessionSource,
+  brokerAccountConfirmationStatus,
+  isBrokerSessionReal,
+  isBrokerAccountConfirmed,
+  brokerCanTrade,
   isBrokerSessionQaEnabled,
   brokerSessionQaState,
   setBrokerSessionQaState,
@@ -241,6 +246,12 @@ export function SignalsTab({
     ? brokerSessionState === 'session_login_failed'
       ? 'Falha no login da corretora'
       : 'Corretora reconectando'
+    : !isBrokerSessionReal
+      ? 'Adapter real da IQ Option ainda nao ativo'
+      : !isBrokerAccountConfirmed
+        ? 'Confirme a conta Demo/Real em Minha Conta'
+        : !brokerCanTrade
+          ? (brokerSession?.block_reason || 'Sessao operacional ainda bloqueada para automacao')
     : '';
   const runtimeByKey = useMemo(
     () => Object.fromEntries((signalRuntimeRows || []).map((signal) => [signal.signalKey, signal])),
@@ -474,6 +485,10 @@ export function SignalsTab({
                 <FlowBadge label={t.sourceLabel || 'Fonte'} value={sourceMode === 'published' ? (t.sourcePublished || 'Sala publicada') : (t.sourceWorkspace || 'Minha lista')} />
                 <FlowBadge label={t.valid || 'Válidos'} value={String(validCount || 0)} tone={validCount > 0 ? 'success' : 'warning'} />
                 <FlowBadge label={t.queueReadyLabel || 'Agendáveis'} value={String(executableSignalsCount || 0)} tone={executableSignalsCount > 0 ? 'success' : 'warning'} />
+                <FlowBadge label="Origem" value={brokerSessionSource || '-'} tone={isBrokerSessionReal ? 'success' : 'warning'} />
+                <FlowBadge label="Conta" value={brokerSession?.account_mode_confirmed || brokerSession?.account_mode_detected || '-'} tone={isBrokerAccountConfirmed ? 'success' : 'warning'} />
+                <FlowBadge label="AutoTrade" value={brokerCanTrade ? 'Liberado' : 'Bloqueado'} tone={brokerCanTrade ? 'success' : 'danger'} />
+                <FlowBadge label="Confirmação" value={brokerAccountConfirmationStatus || '-'} tone={isBrokerAccountConfirmed ? 'success' : 'warning'} />
               </div>
 
               {runtimeErrorMeta?.visible ? (

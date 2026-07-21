@@ -149,6 +149,28 @@ export async function updateBotInstanceExecutionConfig({
   return data;
 }
 
+export async function confirmBotInstanceOperationalAccount({ workspaceId, slot, accountType }) {
+  assertSupabase();
+  const normalizedAccountType = String(accountType || '').trim() === 'Real' ? 'Real' : 'Demo';
+  const { data, error } = await supabase.rpc('confirm_workspace_bot_account', {
+    p_workspace_id: workspaceId,
+    p_slot: Number(slot),
+    p_account_type: normalizedAccountType
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function clearBotInstanceOperationalAccountConfirmation({ workspaceId, slot }) {
+  assertSupabase();
+  const { data, error } = await supabase.rpc('clear_workspace_bot_account_confirmation', {
+    p_workspace_id: workspaceId,
+    p_slot: Number(slot)
+  });
+  if (error) throw error;
+  return data;
+}
+
 export async function enqueueTradeJobs({ workspaceId, slot, sourceMode, listDate, marketCode, asset, jobs }) {
   assertSupabase();
   const payload = {
