@@ -1,23 +1,46 @@
 {
-  "name": "magicbot-web-app",
+  "name": "control-zen-quant",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "server": "node server/index.js",
+    "worker": "node worker/index.js",
+    "dev:full": "concurrently \"npm run server\" \"npm run worker\" \"npm run dev -- --host 127.0.0.1 --port 4173\"",
+    "tunnel:api": "powershell -ExecutionPolicy Bypass -File \"./scripts/start-cloudflare-tunnel.ps1\"",
+    "tunnel:url": "powershell -ExecutionPolicy Bypass -File \"./scripts/get-cloudflare-tunnel-url.ps1\"",
+    "tunnel:stop": "powershell -ExecutionPolicy Bypass -File \"./scripts/stop-cloudflare-tunnel.ps1\"",
+    "tunnel:login": "powershell -ExecutionPolicy Bypass -File \"./scripts/login-cloudflare-tunnel.ps1\"",
+    "tunnel:fixed:create": "powershell -ExecutionPolicy Bypass -File \"./scripts/create-cloudflare-named-tunnel.ps1\"",
+    "tunnel:fixed:start": "powershell -ExecutionPolicy Bypass -File \"./scripts/start-cloudflare-named-tunnel.ps1\"",
+    "tunnel:fixed:info": "powershell -ExecutionPolicy Bypass -File \"./scripts/get-cloudflare-named-tunnel-info.ps1\"",
+    "worker:host:install": "powershell -ExecutionPolicy Bypass -File \"./scripts/install-worker-host.ps1\"",
+    "worker:host:start": "powershell -ExecutionPolicy Bypass -File \"./scripts/start-worker-host.ps1\"",
+    "worker:host:stop": "powershell -ExecutionPolicy Bypass -File \"./scripts/stop-worker-host.ps1\"",
+    "worker:host:check": "powershell -ExecutionPolicy Bypass -File \"./scripts/check-worker-host.ps1\"",
+    "worker:host:recover": "powershell -ExecutionPolicy Bypass -File \"./scripts/recover-worker-host.ps1\"",
+    "package:worker:windows": "powershell -ExecutionPolicy Bypass -File \"./scripts/build-worker-package.ps1\"",
+    "pm2:start": "pm2 start ecosystem.config.cjs --update-env",
+    "pm2:save": "pm2 save",
+    "pm2:resurrect": "pm2 resurrect",
+    "pm2:stop": "pm2 delete ecosystem.config.cjs",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.106.2",
+    "@supabase/supabase-js": "^2.56.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "lucide-react": "^0.539.0",
+    "playwright-core": "^1.54.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.3.4",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.49",
-    "tailwindcss": "^3.4.17",
-    "vite": "^5.4.10"
+    "concurrently": "^9.2.0",
+    "pm2": "^5.4.3",
+    "vite": "^7.0.6"
   }
 }
