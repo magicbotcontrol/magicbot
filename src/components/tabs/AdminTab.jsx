@@ -1,6 +1,7 @@
 import { ScrollableTableShell } from '../ScrollableTableShell';
 import { Icons } from '../../constants/icons';
 import { AdminWorkspaceDetailsModal } from '../modals/AdminWorkspaceDetailsModal';
+import { AdminChargeMembershipModal } from '../modals/AdminChargeMembershipModal';
 import { AdminGrantWaiverModal } from '../modals/AdminGrantWaiverModal';
 import { AdminCopyTradingCampaigns } from '../admin/AdminCopyTradingCampaigns';
 
@@ -122,16 +123,23 @@ export function AdminTab({
   selectedWorkspaceId,
   workspaceDetails,
   selectedWaiverUser,
+  selectedChargeUser,
+  chargePreview,
   signalsFeedDate,
   signalsFeedMarket,
   signalsFeedAssets,
   signalsFeedAsset,
   signalsFeedAssetInput,
   signalsFeedText,
+  isSignalsAutomatorMaintenanceActive,
   isAdminLoading,
   isWorkspaceDetailsLoading,
   isGrantingWaiver,
+  isChargePreviewLoading,
+  isChargingMembership,
   isUpdatingTestAccount,
+  isFeatureFlagsLoading,
+  isTogglingSignalsAutomatorMaintenance,
   isSignalsFeedLoading,
   isSignalsFeedSaving,
   isGrantingSignalsAccess,
@@ -139,7 +147,11 @@ export function AdminTab({
   closeWorkspaceDetails,
   openWaiverModal,
   closeWaiverModal,
+  openChargeModal,
+  closeChargeModal,
   confirmMonthlyWaiver,
+  confirmMonthlyCharge,
+  toggleSignalsAutomatorMaintenance,
   toggleTestAccount,
   setSignalsFeedDate,
   setSignalsFeedMarket,
@@ -212,6 +224,51 @@ export function AdminTab({
       </div>
 
       <AdminCopyTradingCampaigns t={t} showToast={showToast} />
+
+      <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h3 className="text-base font-bold text-gray-900 dark:text-white">{t.adminFeatureAvailabilityTitle}</h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t.adminFeatureAvailabilitySubtitle}</p>
+          </div>
+          {isFeatureFlagsLoading ? <span className="text-xs font-semibold text-gray-400">{t.loadingSignals}</span> : null}
+        </div>
+
+        <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-[#334155] dark:bg-[#111827]">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm font-bold text-gray-900 dark:text-white">{t.signals}</p>
+              <p className="mt-1 text-sm text-gray-500 dark:text-[#94A3B8]">{t.adminSignalsMaintenanceDescription}</p>
+              <div className="mt-3">
+                <span className={`inline-flex rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] ${
+                  isSignalsAutomatorMaintenanceActive
+                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300'
+                    : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300'
+                }`}>
+                  {isSignalsAutomatorMaintenanceActive ? t.adminSignalsMaintenanceOn : t.adminSignalsMaintenanceOff}
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={toggleSignalsAutomatorMaintenance}
+              disabled={isTogglingSignalsAutomatorMaintenance || isFeatureFlagsLoading}
+              className={`rounded-2xl px-4 py-3 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                isSignalsAutomatorMaintenanceActive
+                  ? 'bg-emerald-600 text-white hover:bg-emerald-500'
+                  : 'bg-amber-500 text-white hover:bg-amber-400'
+              }`}
+            >
+              {isTogglingSignalsAutomatorMaintenance
+                ? t.adminSignalsMaintenanceBusy
+                : isSignalsAutomatorMaintenanceActive
+                  ? t.adminSignalsMaintenanceAllowAction
+                  : t.adminSignalsMaintenanceBlockAction}
+            </button>
+          </div>
+        </div>
+      </section>
 
       <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -442,6 +499,14 @@ export function AdminTab({
                         </button>
                         <button
                           type="button"
+                          onClick={() => openChargeModal(user)}
+                          disabled={Boolean(isChargePreviewLoading) && selectedChargeUser?.id === user.id}
+                          className="rounded-xl bg-[#FF6B00] px-3 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-[#FF7F1F] disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {isChargePreviewLoading && selectedChargeUser?.id === user.id ? t.loadingSignals : t.adminChargeAction}
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => openWaiverModal(user)}
                           className="rounded-xl bg-[#FFF7F0] px-3 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-[#B45309] transition-colors hover:bg-[#FFE6D2] dark:bg-[#3A1E12] dark:text-[#FDBA74] dark:hover:bg-[#4A2514]"
                         >
@@ -591,6 +656,17 @@ export function AdminTab({
         isSubmitting={isGrantingWaiver}
         onClose={closeWaiverModal}
         onConfirm={confirmMonthlyWaiver}
+        t={t}
+      />
+
+      <AdminChargeMembershipModal
+        isOpen={Boolean(selectedChargeUser)}
+        user={selectedChargeUser}
+        preview={chargePreview}
+        isPreviewLoading={isChargePreviewLoading}
+        isSubmitting={isChargingMembership}
+        onClose={closeChargeModal}
+        onConfirm={confirmMonthlyCharge}
         t={t}
       />
     </div>

@@ -70,7 +70,12 @@ export function useLicenseState(workspaceId, isLoggedIn, isAdmin, showToast, pla
       if (selectedOffer.kind === 'membership') {
         const license = await extendWorkspaceLicense(workspaceId, {
           days: Number(selectedOffer.days || 30),
-          planName: selectedOffer.planName || 'membership-monthly'
+          planName: selectedOffer.planName || 'membership-monthly',
+          amountUsd: Number(selectedOffer.amount || 0),
+          bankrollUsd: Number(selectedOffer.bankrollUsd || 0),
+          tierId: selectedOffer.tierId || null,
+          tierLabel: selectedOffer.tierLabel || null,
+          manualOverride: Boolean(selectedOffer.manualOverride)
         });
 
         setRemainingDays(license.remainingDays);

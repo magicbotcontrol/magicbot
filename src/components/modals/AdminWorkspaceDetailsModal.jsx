@@ -5,6 +5,14 @@ function formatDate(value) {
   return new Date(value).toLocaleString('pt-BR');
 }
 
+function formatUsd(value) {
+  if (!Number.isFinite(Number(value))) return null;
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD'
+  }).format(Number(value));
+}
+
 function getSubscriptionLabel(t, accessType) {
   const labels = {
     trial: t.adminSubscriptionTrial,
@@ -455,6 +463,13 @@ export function AdminWorkspaceDetailsModal({
                           <p className="text-xs text-gray-500 dark:text-[#94A3B8]">
                             {getSubscriptionLabel(t, event.access_type)} • {event.days_delta}d • {t.adminExpiresAtLabel}: {event.expires_at ? new Date(event.expires_at).toLocaleDateString('pt-BR') : '-'}
                           </p>
+                          {event.charged_amount_usd || event.pricing_tier_label ? (
+                            <p className="mt-1 text-xs text-gray-500 dark:text-[#94A3B8]">
+                              {event.charged_amount_usd ? `Cobrado: ${formatUsd(event.charged_amount_usd)}` : 'Cobrado: -'}
+                              {event.pricing_tier_label ? ` • Faixa: ${event.pricing_tier_label}` : ''}
+                              {event.manual_override ? ' • Override manual' : ''}
+                            </p>
+                          ) : null}
                         </div>
                         <span className="text-xs font-semibold text-gray-400">{formatDate(event.created_at)}</span>
                       </div>

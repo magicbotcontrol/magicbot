@@ -279,6 +279,10 @@ export function useBrokerState(workspaceId, showToast, playAlertSound, t) {
     try {
       const syncCommands = await queueBrokerSessionSync(brokerId);
       const commandIds = syncCommands.map((command) => command?.id).filter(Boolean);
+      if (!commandIds.length) {
+        showToast('Nenhum comando de sincronização foi criado para essa corretora.');
+        return false;
+      }
       if (commandIds.length) {
         await waitForBrokerSessionSync({ brokerId, commandIds });
       }

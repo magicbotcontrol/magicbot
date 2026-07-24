@@ -9,7 +9,8 @@ import {
   adminRevokeSignalsBundleEntitlement,
   adminRevokeSignalsEntitlement
 } from '../services/supabaseEntitlements';
-import { grantUserMonthlyWaiver } from '../services/supabaseLicense';
+import { adminChargeUserMonthlyMembership, grantUserMonthlyWaiver } from '../services/supabaseLicense';
+import { DEFAULT_MONTHLY_AMOUNT, resolveHighestBankroll, resolveMonthlyTier } from '../utils/monthlyPricing';
 
 const EMPTY_OVERVIEW = {
   summary: { usersCount: 0, adminsCount: 0, testAccountsCount: 0, testWorkspacesCount: 0, workspacesCount: 0 },
@@ -90,6 +91,13 @@ function buildPageState(totalItems, pageSize, requestedPage) {
   };
 }
 
+function formatUsd(value) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD'
+  }).format(Number(value || 0));
+}
+
 export function useAdminState(isAdmin, showToast, t) {
   const showToastRef = useRef(showToast);
   const errorMessageRef = useRef(t.supabaseSyncError);
@@ -112,7 +120,11 @@ export function useAdminState(isAdmin, showToast, t) {
   const [workspaceDetails, setWorkspaceDetails] = useState(null);
   const [isWorkspaceDetailsLoading, setIsWorkspaceDetailsLoading] = useState(false);
   const [selectedWaiverUser, setSelectedWaiverUser] = useState(null);
+  const [selectedChargeUser, setSelectedChargeUser] = useState(null);
+  const [chargePreview, setChargePreview] = useState(null);
   const [isGrantingWaiver, setIsGrantingWaiver] = useState(false);
+  const [isChargePreviewLoading, setIsChargePreviewLoading] = useState(false);
+  const [isChargingMembership, setIsChargingMembership] = useState(false);
   const [isUpdatingTestAccount, setIsUpdatingTestAccount] = useState(false);
   const [signalsFeedDate, setSignalsFeedDate] = useState(new Date().toLocaleDateString('en-CA'));
   const [signalsFeedMarket, setSignalsFeedMarket] = useState('ob');
@@ -338,6 +350,68 @@ export function useAdminState(isAdmin, showToast, t) {
     setSelectedWaiverUser(null);
   };
 
+  const openChargeModal = async (user) => {
+    setSelectedChargeUser(user);
+    setChargePreview(null);
+    setIsChargePreviewLoading(true);
+
+    try {
+      const ownerWorkspaces = [...(overview?.workspaces || [])]
+        .filter((workspace) => workspace.ownerUserId === user.id)
+        .sort((left, right) => new Date(right.createdAt || 0).getTime() - new Date(left.createdAt || 0).getTime());
+      const primaryWorkspace = ownerWorkspaces[0] || null;
+
+      if (!primaryWorkspace) {
+        const fallbackTier = resolveMonthlyTier(0);
+        setChargePreview({
+          workspaceId: null,
+          workspaceName: '',
+          workspaceCount: 0,
+          bankrollUsd: 0,
+          hasDetectedBankroll: false,
+          tier: fallbackTier,
+          suggestedAmount: fallbackTier.amount
+        });
+        return;
+      }
+
+      const details = await loadWorkspaceDetails(primaryWorkspace.id);
+      const bankrollUsd = resolveHighestBankroll(details?.brokers || []);
+      const tier = resolveMonthlyTier(bankrollUsd);
+
+      setChargePreview({
+        workspaceId: primaryWorkspace.id,
+        workspaceName: primaryWorkspace.name || details?.workspace?.name || '',
+        workspaceCount: ownerWorkspaces.length,
+        bankrollUsd,
+        hasDetectedBankroll: bankrollUsd > 0,
+        tier,
+        suggestedAmount: tier.amount
+      });
+    } catch {
+      const fallbackTier = resolveMonthlyTier(0);
+      setChargePreview({
+        workspaceId: null,
+        workspaceName: '',
+        workspaceCount: 0,
+        bankrollUsd: 0,
+        hasDetectedBankroll: false,
+        tier: fallbackTier,
+        suggestedAmount: fallbackTier.amount
+      });
+      showToastRef.current(errorMessageRef.current);
+    } finally {
+      setIsChargePreviewLoading(false);
+    }
+  };
+
+  const closeChargeModal = () => {
+    if (isChargingMembership) return;
+    setSelectedChargeUser(null);
+    setChargePreview(null);
+    setIsChargePreviewLoading(false);
+  };
+
   const confirmMonthlyWaiver = async (note) => {
     if (!selectedWaiverUser) return false;
 
@@ -361,6 +435,41 @@ export function useAdminState(isAdmin, showToast, t) {
       return false;
     } finally {
       setIsGrantingWaiver(false);
+    }
+  };
+
+  const confirmMonthlyCharge = async ({ amount, note }) => {
+    if (!selectedChargeUser) return false;
+
+    setIsChargingMembership(true);
+
+    try {
+      const result = await adminChargeUserMonthlyMembership(selectedChargeUser.id, {
+        amount,
+        note,
+        days: 30,
+        bankrollUsd: chargePreview?.bankrollUsd || 0,
+        suggestedAmount: chargePreview?.suggestedAmount || DEFAULT_MONTHLY_AMOUNT,
+        tierId: chargePreview?.tier?.id || 'starter',
+        tierLabel: chargePreview?.tier?.label || 'US$ 0 a 250'
+      });
+      const nextOverview = await loadOverview();
+      setOverview(nextOverview);
+
+      if (selectedWorkspaceId === result.workspace_id) {
+        const details = await loadWorkspaceDetails(result.workspace_id);
+        setWorkspaceDetails(details);
+      }
+
+      showToastRef.current(t.adminChargeGranted.replace('{amount}', formatUsd(result.charged_amount)));
+      setSelectedChargeUser(null);
+      setChargePreview(null);
+      return true;
+    } catch (error) {
+      showToastRef.current(error?.message || t.supabaseSaveError);
+      return false;
+    } finally {
+      setIsChargingMembership(false);
     }
   };
 
@@ -553,6 +662,8 @@ export function useAdminState(isAdmin, showToast, t) {
     selectedWorkspaceId,
     workspaceDetails,
     selectedWaiverUser,
+    selectedChargeUser,
+    chargePreview,
     signalsFeedDate,
     signalsFeedMarket,
     signalsFeedAssets,
@@ -562,6 +673,8 @@ export function useAdminState(isAdmin, showToast, t) {
     isAdminLoading,
     isWorkspaceDetailsLoading,
     isGrantingWaiver,
+    isChargePreviewLoading,
+    isChargingMembership,
     isUpdatingTestAccount,
     isSignalsFeedLoading,
     isSignalsFeedSaving,
@@ -570,7 +683,10 @@ export function useAdminState(isAdmin, showToast, t) {
     closeWorkspaceDetails,
     openWaiverModal,
     closeWaiverModal,
+    openChargeModal,
+    closeChargeModal,
     confirmMonthlyWaiver,
+    confirmMonthlyCharge,
     toggleTestAccount,
     setSignalsFeedDate,
     setSignalsFeedMarket,

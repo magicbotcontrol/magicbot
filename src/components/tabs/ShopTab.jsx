@@ -1,4 +1,5 @@
 import { Icons } from '../../constants/icons';
+import { DEFAULT_MONTHLY_AMOUNT, MONTHLY_PRICING_TIERS, resolveMonthlyTier } from '../../utils/monthlyPricing';
 
 function StatusBadge({ active, label }) {
   return (
@@ -76,18 +77,27 @@ export function ShopTab({
   formatMoney,
   isMembershipActive,
   membershipExpirationDate,
+  monthlyBankrollUsd,
   hasCopyAccess,
   hasSignalsPackageAccess,
   hasFullAccess
 }) {
+  const membershipTier = resolveMonthlyTier(monthlyBankrollUsd);
+  const hasDetectedBankroll = Number.isFinite(Number(monthlyBankrollUsd)) && Number(monthlyBankrollUsd) > 0;
   const membershipOffer = {
     kind: 'membership',
-    title: 'Mensalidade base',
-    description: 'Ativa o workspace por 30 dias. Ela é obrigatória para qualquer pacote funcionar.',
-    amount: 40,
+    title: 'Mensalidade',
+    description: hasDetectedBankroll
+      ? `Ativa o workspace por 30 dias conforme a faixa da banca detectada. Ela e obrigatoria para qualquer pacote funcionar.`
+      : `Ativa o workspace por 30 dias. Enquanto a banca nao estiver detectada, a faixa inicial de ${formatMoney(DEFAULT_MONTHLY_AMOUNT, 'USD')} sera usada.`,
+    amount: membershipTier.amount,
     days: 30,
-    planName: 'membership-monthly',
-    successMessage: 'Mensalidade base ativada com sucesso por 30 dias.'
+    planName: `membership-monthly-${membershipTier.id}`,
+    tierId: membershipTier.id,
+    tierLabel: membershipTier.label,
+    bankrollUsd: Number(monthlyBankrollUsd || 0),
+    manualOverride: false,
+    successMessage: `Mensalidade ativada com sucesso por 30 dias na faixa ${membershipTier.label}.`
   };
 
   const packages = [
@@ -100,7 +110,7 @@ export function ShopTab({
       successMessage: 'Pacote Copy Trading ativado com sucesso.',
       statusLabel: hasCopyAccess ? 'Ativo' : 'Inativo',
       isActive: hasCopyAccess,
-      note: isMembershipActive ? 'Mensalidade base validada. Este pacote já pode liberar o Copy Trading.' : 'Este pacote exige a mensalidade base de $40 ativa.',
+      note: isMembershipActive ? 'Mensalidade validada. Este pacote ja pode liberar o Copy Trading.' : 'Este pacote exige a mensalidade conforme a tabela da banca.',
       features: [
         'Acesso ao Copy Trading',
         'Janela de uso por 30 dias',
@@ -116,7 +126,7 @@ export function ShopTab({
       successMessage: 'Pacote Automatizador + Listas ativado com sucesso.',
       statusLabel: hasSignalsPackageAccess ? 'Ativo' : 'Inativo',
       isActive: hasSignalsPackageAccess,
-      note: isMembershipActive ? 'Mensalidade base validada. O pacote cobre AutoTrader e as listas de sinais.' : 'Este pacote exige a mensalidade base de $40 ativa.',
+      note: isMembershipActive ? 'Mensalidade validada. O pacote cobre AutoTrader e as listas de sinais.' : 'Este pacote exige a mensalidade conforme a tabela da banca.',
       features: [
         'AutoTrader (Lista)',
         'Sinais Diários OB',
@@ -133,7 +143,7 @@ export function ShopTab({
       successMessage: 'Pacote Full Access ativado com sucesso.',
       statusLabel: hasFullAccess ? 'Ativo' : 'Inativo',
       isActive: hasFullAccess,
-      note: isMembershipActive ? 'Mensalidade base validada. Este é o pacote completo de 30 dias.' : 'Este pacote exige a mensalidade base de $40 ativa.',
+      note: isMembershipActive ? 'Mensalidade validada. Este e o pacote completo de 30 dias.' : 'Este pacote exige a mensalidade conforme a tabela da banca.',
       features: [
         'Copy Trading',
         'AutoTrader (Lista)',
@@ -152,7 +162,7 @@ export function ShopTab({
         </span>
         <h2 className="text-2xl font-black text-gray-900 dark:text-white md:text-3xl">Ative sua mensalidade e escolha o pacote</h2>
         <p className="mx-auto max-w-3xl text-sm text-gray-500 dark:text-gray-400">
-          Regra nova da loja: primeiro o usuário mantém a mensalidade base de {formatMoney(40, 'USD')} ativa por 30 dias; depois escolhe o pacote que libera os produtos desejados por mais 30 dias.
+          A mensalidade agora segue a faixa da sua banca, com valor inicial de {formatMoney(DEFAULT_MONTHLY_AMOUNT, 'USD')}. Os demais pacotes permanecem com os mesmos valores.
         </p>
       </div>
 
@@ -168,17 +178,22 @@ export function ShopTab({
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               {isMembershipActive ? `Expira em ${membershipExpirationDate || '-'}` : 'Renovação de 30 dias da base do workspace.'}
             </p>
+            <div className="mt-4 rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-xs font-semibold text-orange-700 dark:border-orange-900/40 dark:bg-orange-950/15 dark:text-orange-300">
+              {hasDetectedBankroll
+                ? `Banca detectada: ${formatMoney(monthlyBankrollUsd, 'USD')} -> mensalidade atual ${formatMoney(membershipTier.amount, 'USD')}.`
+                : `Banca ainda nao detectada. A faixa inicial de ${formatMoney(DEFAULT_MONTHLY_AMOUNT, 'USD')} sera usada ate a primeira leitura de saldo.`}
+            </div>
           </div>
 
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/15 dark:text-emerald-300">
-            Sem mensalidade base ativa, nenhum pacote libera acesso operacional.
+            Sem mensalidade ativa, nenhum pacote libera acesso operacional.
           </div>
         </div>
 
         <FeatureList items={[
-          'Habilita o workspace por 30 dias',
-          'Obrigatória para Copy Trading, AutoTrader e listas',
-          'Pode ser renovada independentemente do pacote'
+          `Mensalidade inicial de ${formatMoney(DEFAULT_MONTHLY_AMOUNT, 'USD')}`,
+          'Tabela mensal conforme o valor da banca',
+          'Obrigatoria para Copy Trading, AutoTrader e listas'
         ]} />
 
         <button
@@ -186,8 +201,80 @@ export function ShopTab({
           onClick={() => buyDaysSimulate(membershipOffer)}
           className="mt-8 w-full rounded-2xl bg-[#FF6B00] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#FF7F1F] lg:w-auto"
         >
-          Pagar mensalidade base
+          Pagar mensalidade
         </button>
+      </section>
+
+      <section className="rounded-[28px] border border-gray-200 bg-white p-7 shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#FF6B00]">Planos mensais</p>
+            <h3 className="mt-2 text-xl font-black text-gray-900 dark:text-white">Escolha o plano de acordo com o valor da sua banca</h3>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+              Mensalidade inicial: {formatMoney(DEFAULT_MONTHLY_AMOUNT, 'USD')}. Sem produtos. Tabela mensal conforme o valor da banca.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-xs font-semibold text-orange-700 dark:border-orange-900/40 dark:bg-orange-950/15 dark:text-orange-300">
+            Mais lucro para voce! Automatize. Opere. Escale.
+          </div>
+        </div>
+
+        <div className="mt-6 space-y-3 md:hidden">
+          {MONTHLY_PRICING_TIERS.map((tier) => {
+            const isCurrent = tier.id === membershipTier.id;
+            return (
+              <div
+                key={tier.id}
+                className={`rounded-2xl border px-4 py-4 ${
+                  isCurrent
+                    ? 'border-[#FF6B00] bg-orange-50 dark:bg-orange-950/20'
+                    : 'border-gray-200 bg-gray-50 dark:border-[#334155] dark:bg-[#0B1220]'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-gray-400">Valor da banca</p>
+                    <p className={`mt-1 text-sm font-bold ${isCurrent ? 'text-orange-700 dark:text-orange-300' : 'text-gray-900 dark:text-white'}`}>{tier.label}</p>
+                  </div>
+                  {isCurrent ? (
+                    <span className="rounded-full bg-[#FF6B00] px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-white">
+                      Atual
+                    </span>
+                  ) : null}
+                </div>
+                <div className="mt-3">
+                  <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-gray-400">Valor mensal</p>
+                  <p className={`mt-1 text-2xl font-black ${isCurrent ? 'text-orange-600 dark:text-orange-300' : 'text-gray-900 dark:text-white'}`}>
+                    {formatMoney(tier.amount, 'USD')}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-6 hidden overflow-hidden rounded-3xl border border-gray-200 dark:border-[#334155] md:block">
+          <div className="grid grid-cols-2 bg-gray-50 px-5 py-3 text-[11px] font-extrabold uppercase tracking-[0.16em] text-gray-500 dark:bg-[#0B1220] dark:text-[#94A3B8]">
+            <span>Valor da banca</span>
+            <span>Valor mensal</span>
+          </div>
+          {MONTHLY_PRICING_TIERS.map((tier) => {
+            const isCurrent = tier.id === membershipTier.id;
+            return (
+              <div
+                key={tier.id}
+                className={`grid grid-cols-2 px-5 py-4 text-sm ${
+                  isCurrent
+                    ? 'bg-orange-50 text-orange-700 dark:bg-orange-950/20 dark:text-orange-300'
+                    : 'border-t border-gray-100 text-gray-700 dark:border-[#334155] dark:text-gray-300'
+                }`}
+              >
+                <span className="font-semibold">{tier.label}</span>
+                <span className="font-black">{formatMoney(tier.amount, 'USD')}</span>
+              </div>
+            );
+          })}
+        </div>
       </section>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
@@ -215,17 +302,17 @@ export function ShopTab({
           <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-[#334155] dark:bg-[#0B1220]">
             <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">Pacote 1</p>
             <p className="mt-2 text-sm font-bold text-gray-900 dark:text-white">Copy Trading</p>
-            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Mensalidade base + pacote de {formatMoney(40, 'USD')}.</p>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Mensalidade conforme a banca + pacote de {formatMoney(40, 'USD')}.</p>
           </div>
           <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-[#334155] dark:bg-[#0B1220]">
             <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">Pacote 2</p>
             <p className="mt-2 text-sm font-bold text-gray-900 dark:text-white">Automatizador + 3 Listas</p>
-            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Mensalidade base + pacote de {formatMoney(60, 'USD')}.</p>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Mensalidade conforme a banca + pacote de {formatMoney(60, 'USD')}.</p>
           </div>
           <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-[#334155] dark:bg-[#0B1220]">
             <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">Pacote 3</p>
             <p className="mt-2 text-sm font-bold text-gray-900 dark:text-white">Acesso a todos os produtos</p>
-            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Mensalidade base + pacote de {formatMoney(80, 'USD')}.</p>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Mensalidade conforme a banca + pacote de {formatMoney(80, 'USD')}.</p>
           </div>
         </div>
       </section>

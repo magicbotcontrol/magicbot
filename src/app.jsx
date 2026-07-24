@@ -18,6 +18,7 @@ import { DailySignalsTab } from './components/tabs/DailySignalsTab';
 import { SettingsTab } from './components/tabs/SettingsTab';
 import { ShopTab } from './components/tabs/ShopTab';
 import { SignalsTab } from './components/tabs/SignalsTab';
+import { MaintenanceTab } from './components/tabs/MaintenanceTab';
 import { PremiumBlockedTab } from './components/tabs/PremiumBlockedTab';
 import { Icons } from './constants/icons';
 import { globalStyles } from './constants/globalStyles';
@@ -25,6 +26,7 @@ import { useBrokerState } from './hooks/useBrokerState';
 import { useAdminState } from './hooks/useAdminState';
 import { useAffiliatesState } from './hooks/useAffiliatesState';
 import { useDashboardState } from './hooks/useDashboardState';
+import { useFeatureFlagsState } from './hooks/useFeatureFlagsState';
 import { useLicenseState } from './hooks/useLicenseState';
 import { useCopyTradingEntitlementState } from './hooks/useCopyTradingEntitlementState';
 import { useSignalsEntitlementState } from './hooks/useSignalsEntitlementState';
@@ -42,6 +44,7 @@ export default function App() {
   const [authView, setAuthView] = useState('login');
   const [entitlementsReloadToken, setEntitlementsReloadToken] = useState(0);
   const admin = useAdminState(session.isAdmin, ui.showToast, ui.t);
+  const featureFlags = useFeatureFlagsState(session.isLoggedIn, session.isAdmin, ui.showToast, ui.t);
   const affiliates = useAffiliatesState(session.isLoggedIn, ui.showToast, ui.t);
   const workspace = useSupabaseWorkspace(session.isLoggedIn, ui.showToast, ui.t);
   const dashboard = useDashboardState(workspace.workspaceId, session.isLoggedIn, ui.showToast, ui.t);
@@ -61,6 +64,23 @@ export default function App() {
   const selectedBrokerName = settings.config.broker;
   const selectedBrokerItem = broker.brokersList.find((item) => item.name === selectedBrokerName) || null;
   const linkedBrokersCount = broker.brokersList.filter((item) => item.status === 'Linked').length;
+  const monthlyBankrollUsd = (() => {
+    const getBrokerBalance = (item) => {
+      const sessionBalance = Number(item?.brokerSession?.account_balance);
+      if (Number.isFinite(sessionBalance) && sessionBalance > 0) {
+        return sessionBalance;
+      }
+      const fallbackBalance = Number(item?.balance);
+      return Number.isFinite(fallbackBalance) && fallbackBalance > 0 ? fallbackBalance : 0;
+    };
+
+    const selectedBalance = getBrokerBalance(selectedBrokerItem);
+    if (selectedBalance > 0) {
+      return selectedBalance;
+    }
+
+    return broker.brokersList.reduce((highest, item) => Math.max(highest, getBrokerBalance(item)), 0);
+  })();
   const hasMembershipActive = session.isAdmin || license.isMembershipActive;
   const hasDailyListAccess = session.isAdmin || (hasMembershipActive && signalsEntitlement.isSignalsDailyListActive);
   const hasAutomatorAccess = session.isAdmin || (hasMembershipActive && signalsEntitlement.isSignalsAutomatorActive);
@@ -198,6 +218,18 @@ export default function App() {
               setActiveTab={ui.setActiveTab}
               title="Pacote do Automatizador necessário"
               subtitle="Para usar o AutoTrader (Lista), o workspace precisa de mensalidade base ativa e de um pacote com Automatizador + Listas ou Full Access."
+            />
+          );
+        }
+        if (featureFlags.isSignalsAutomatorMaintenanceActive && !session.isAdmin) {
+          return (
+            <MaintenanceTab
+              title={ui.t.signalsMaintenanceTitle}
+              subtitle={ui.t.signalsMaintenanceSubtitle}
+              ctaLabel={ui.t.signalsMaintenanceCta}
+              ctaTab="dashboard"
+              setActiveTab={ui.setActiveTab}
+              tone="amber"
             />
           );
         }
@@ -438,15 +470,23 @@ export default function App() {
             selectedWorkspaceId={admin.selectedWorkspaceId}
             workspaceDetails={admin.workspaceDetails}
             selectedWaiverUser={admin.selectedWaiverUser}
+            selectedChargeUser={admin.selectedChargeUser}
+            chargePreview={admin.chargePreview}
             signalsFeedDate={admin.signalsFeedDate}
             signalsFeedMarket={admin.signalsFeedMarket}
             signalsFeedAssets={admin.signalsFeedAssets}
             signalsFeedAsset={admin.signalsFeedAsset}
             signalsFeedAssetInput={admin.signalsFeedAssetInput}
             signalsFeedText={admin.signalsFeedText}
+            isSignalsAutomatorMaintenanceActive={featureFlags.isSignalsAutomatorMaintenanceActive}
             isAdminLoading={admin.isAdminLoading}
             isWorkspaceDetailsLoading={admin.isWorkspaceDetailsLoading}
             isGrantingWaiver={admin.isGrantingWaiver}
+            isChargePreviewLoading={admin.isChargePreviewLoading}
+            isChargingMembership={admin.isChargingMembership}
+            isUpdatingTestAccount={admin.isUpdatingTestAccount}
+            isFeatureFlagsLoading={featureFlags.isFeatureFlagsLoading}
+            isTogglingSignalsAutomatorMaintenance={featureFlags.isTogglingSignalsAutomatorMaintenance}
             isSignalsFeedLoading={admin.isSignalsFeedLoading}
             isSignalsFeedSaving={admin.isSignalsFeedSaving}
             isGrantingSignalsAccess={admin.isGrantingSignalsAccess}
@@ -454,7 +494,11 @@ export default function App() {
             closeWorkspaceDetails={admin.closeWorkspaceDetails}
             openWaiverModal={admin.openWaiverModal}
             closeWaiverModal={admin.closeWaiverModal}
+            openChargeModal={admin.openChargeModal}
+            closeChargeModal={admin.closeChargeModal}
             confirmMonthlyWaiver={admin.confirmMonthlyWaiver}
+            confirmMonthlyCharge={admin.confirmMonthlyCharge}
+            toggleSignalsAutomatorMaintenance={featureFlags.toggleSignalsAutomatorMaintenance}
             setSignalsFeedDate={admin.setSignalsFeedDate}
             setSignalsFeedMarket={admin.setSignalsFeedMarket}
             setSignalsFeedAsset={admin.setSignalsFeedAsset}
@@ -503,6 +547,7 @@ export default function App() {
             formatMoney={ui.formatMoney}
             isMembershipActive={license.isMembershipActive}
             membershipExpirationDate={license.expirationDate}
+            monthlyBankrollUsd={monthlyBankrollUsd}
             hasCopyAccess={hasCopyAccess}
             hasSignalsPackageAccess={hasSignalsPackageAccess}
             hasFullAccess={hasFullAccess}

@@ -117,6 +117,46 @@ async function getAdminProfileById(profileId) {
   return fallback;
 }
 
+async function listWorkspaceLicenseEvents(workspaceId) {
+  const extendedSelect = 'id, event_type, access_type, status_after, plan_name, days_delta, expires_at, note, created_at, charged_amount_usd, bankroll_usd, pricing_tier_id, pricing_tier_label, manual_override';
+  const baseSelect = 'id, event_type, access_type, status_after, plan_name, days_delta, expires_at, note, created_at';
+
+  const withChargeFields = await supabase
+    .from('workspace_license_events')
+    .select(extendedSelect)
+    .eq('workspace_id', workspaceId)
+    .order('created_at', { ascending: false })
+    .limit(8);
+
+  if (!withChargeFields.error) {
+    return withChargeFields;
+  }
+
+  if (!isMissingColumnError(withChargeFields.error, 'charged_amount_usd')) {
+    return withChargeFields;
+  }
+
+  const fallback = await supabase
+    .from('workspace_license_events')
+    .select(baseSelect)
+    .eq('workspace_id', workspaceId)
+    .order('created_at', { ascending: false })
+    .limit(8);
+
+  if (!fallback.error) {
+    fallback.data = (fallback.data || []).map((event) => ({
+      ...event,
+      charged_amount_usd: null,
+      bankroll_usd: null,
+      pricing_tier_id: null,
+      pricing_tier_label: null,
+      manual_override: false
+    }));
+  }
+
+  return fallback;
+}
+
 export async function getAdminOverview() {
   assertSupabase();
 
@@ -359,13 +399,7 @@ export async function getAdminWorkspaceDetails(workspaceId) {
       .from('live_operations')
       .select('workspace_id, profit_loss, status')
       .eq('workspace_id', workspaceId),
-    supabase
-      .from('workspace_license_events')
-      .select('id, event_type, access_type, status_after, plan_name, days_delta, expires_at, note, created_at')
-      .eq('workspace_id', workspaceId)
-      .order('created_at', { ascending: false })
-      .limit(8)
-    ,
+    listWorkspaceLicenseEvents(workspaceId),
     supabase
       .from('workspace_entitlements')
       .select('*')
