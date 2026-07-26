@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { MobileNavItem } from './components/MobileNavItem';
 import { BrokerLinkModal } from './components/modals/BrokerLinkModal';
-import { PixModal } from './components/modals/PixModal';
+import { NowPaymentsModal } from './components/modals/NowPaymentsModal';
 import { AppHeader } from './components/layout/AppHeader';
 import { AppSidebar } from './components/layout/AppSidebar';
 import { ConfirmEmailScreen } from './components/layout/ConfirmEmailScreen';
@@ -712,14 +712,19 @@ export default function App() {
         t={ui.t}
       />
 
-      <PixModal
-        showPixModal={license.showPixModal}
-        pixAmount={license.pixAmount}
-        pixTitle={license.pixTitle}
-        pixDescription={license.pixDescription}
-        handlePixSuccess={license.handlePixSuccess}
-        setShowPixModal={license.setShowPixModal}
-        t={ui.t}
+      <NowPaymentsModal
+        isOpen={Boolean(license.nowPaymentsModalOffer)}
+        offer={license.nowPaymentsModalOffer}
+        paymentOrder={license.nowPaymentsPaymentOrder}
+        currencies={license.nowPaymentsCurrencies}
+        selectedCurrency={license.nowPaymentsSelectedCurrency}
+        setSelectedCurrency={license.setNowPaymentsSelectedCurrency}
+        onCreatePayment={license.createPaymentCheckout}
+        onRefreshStatus={license.refreshPaymentCheckout}
+        onClose={license.closeNowPaymentsModal}
+        isCreating={license.isNowPaymentsPreparing}
+        isRefreshing={license.isNowPaymentsRefreshing}
+        errorMessage={license.nowPaymentsErrorMessage}
         formatMoney={ui.formatMoney}
       />
 

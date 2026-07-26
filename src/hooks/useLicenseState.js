@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { extendWorkspaceLicense, getWorkspaceLicense } from '../services/supabaseLicense';
-import { purchaseWorkspacePackage } from '../services/supabaseEntitlements';
+import { getWorkspaceLicense } from '../services/supabaseLicense';
+import {
+  createNowPaymentsPayment,
+  getNowPaymentsMerchantCurrencies,
+  getNowPaymentsPaymentStatus
+} from '../services/nowPaymentsCheckout';
 
 export function useLicenseState(workspaceId, isLoggedIn, isAdmin, showToast, playAlertSound, t, onPackagePurchased) {
   const showToastRef = useRef(showToast);
@@ -8,8 +12,15 @@ export function useLicenseState(workspaceId, isLoggedIn, isAdmin, showToast, pla
   const [remainingDays, setRemainingDays] = useState(0);
   const [expirationDate, setExpirationDate] = useState('-');
   const [licenseStatus, setLicenseStatus] = useState('expired');
-  const [selectedOffer, setSelectedOffer] = useState(null);
   const [isLicenseLoading, setIsLicenseLoading] = useState(false);
+  const [selectedOffer, setSelectedOffer] = useState(null);
+  const [paymentOrder, setPaymentOrder] = useState(null);
+  const [paymentCurrencies, setPaymentCurrencies] = useState([]);
+  const [selectedPayCurrency, setSelectedPayCurrency] = useState('');
+  const [paymentErrorMessage, setPaymentErrorMessage] = useState('');
+  const [isPreparingPayment, setIsPreparingPayment] = useState(false);
+  const [isRefreshingPayment, setIsRefreshingPayment] = useState(false);
+  const fulfilledOrdersRef = useRef(new Set());
 
   useEffect(() => {
     showToastRef.current = showToast;
@@ -50,54 +61,161 @@ export function useLicenseState(workspaceId, isLoggedIn, isAdmin, showToast, pla
     };
   }, [workspaceId, isLoggedIn, isAdmin]);
 
-  const buyDaysSimulate = (offer) => {
-    setSelectedOffer(offer || null);
+  const resetPaymentState = () => {
+    setSelectedOffer(null);
+    setPaymentOrder(null);
+    setPaymentCurrencies([]);
+    setSelectedPayCurrency('');
+    setPaymentErrorMessage('');
+    setIsPreparingPayment(false);
+    setIsRefreshingPayment(false);
   };
 
-  const handlePixSuccess = async () => {
+  const syncMembershipState = async () => {
+    const license = await getWorkspaceLicense(workspaceId);
+    setRemainingDays(isAdmin ? Math.max(license.remainingDays, 3650) : license.remainingDays);
+    setExpirationDate(license.expirationDate);
+    setLicenseStatus(isAdmin ? 'active' : license.status);
+  };
+
+  const handleFulfilledPaymentOrder = async (nextOrder, offerOverride = selectedOffer) => {
+    if (!nextOrder?.id || nextOrder.activationStatus !== 'fulfilled') {
+      return;
+    }
+
+    if (fulfilledOrdersRef.current.has(nextOrder.id)) {
+      return;
+    }
+
+    fulfilledOrdersRef.current.add(nextOrder.id);
+
+    if (offerOverride?.kind === 'membership') {
+      await syncMembershipState();
+    } else if (offerOverride?.kind === 'package') {
+      onPackagePurchased?.();
+    }
+
+    playAlertSound(950, 0.35);
+    showToastRef.current(offerOverride?.successMessage || 'Pagamento confirmado com sucesso.');
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!selectedOffer) {
+      setPaymentCurrencies([]);
+      setSelectedPayCurrency('');
+      setPaymentErrorMessage('');
+      return undefined;
+    }
+
+    setPaymentErrorMessage('');
+    setIsPreparingPayment(true);
+
+    getNowPaymentsMerchantCurrencies()
+      .then((result) => {
+        if (cancelled) return;
+        const currencies = Array.isArray(result?.currencies) ? result.currencies : [];
+        setPaymentCurrencies(currencies);
+        setSelectedPayCurrency(result?.defaultCurrency || currencies[0] || '');
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setPaymentErrorMessage(error instanceof Error ? error.message : 'Nao foi possivel carregar as moedas de pagamento.');
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setIsPreparingPayment(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedOffer]);
+
+  useEffect(() => {
+    if (!selectedOffer?.kind || !paymentOrder?.id) {
+      return undefined;
+    }
+
+    if (paymentOrder.activationStatus === 'fulfilled') {
+      return undefined;
+    }
+
+    const timerId = window.setInterval(() => {
+      getNowPaymentsPaymentStatus(paymentOrder.id)
+        .then((result) => {
+          const nextOrder = result?.paymentOrder || null;
+          setPaymentOrder(nextOrder);
+          return handleFulfilledPaymentOrder(nextOrder);
+        })
+        .catch(() => {});
+    }, 20000);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [paymentOrder?.id, paymentOrder?.activationStatus, selectedOffer?.kind]);
+
+  const buyDaysSimulate = (offer) => {
+    setSelectedOffer(offer || null);
+    setPaymentOrder(null);
+    setPaymentErrorMessage('');
+  };
+
+  const createPaymentCheckout = async () => {
     if (!workspaceId) {
       showToastRef.current(t.supabaseConnectionError);
       return;
     }
 
-    setIsLicenseLoading(true);
+    if (!selectedOffer?.kind) {
+      setPaymentErrorMessage('Escolha um plano valido antes de gerar a cobranca.');
+      return;
+    }
+
+    if (!selectedPayCurrency) {
+      setPaymentErrorMessage('Selecione a cripto para pagamento.');
+      return;
+    }
+
+    setIsPreparingPayment(true);
+    setPaymentErrorMessage('');
 
     try {
-      if (!selectedOffer?.kind) {
-        throw new Error('Missing purchase offer');
-      }
+      const result = await createNowPaymentsPayment({
+        workspaceId,
+        offer: selectedOffer,
+        payCurrency: selectedPayCurrency
+      });
 
-      if (selectedOffer.kind === 'membership') {
-        const license = await extendWorkspaceLicense(workspaceId, {
-          days: Number(selectedOffer.days || 30),
-          planName: selectedOffer.planName || 'membership-monthly',
-          amountUsd: Number(selectedOffer.amount || 0),
-          bankrollUsd: Number(selectedOffer.bankrollUsd || 0),
-          tierId: selectedOffer.tierId || null,
-          tierLabel: selectedOffer.tierLabel || null,
-          manualOverride: Boolean(selectedOffer.manualOverride)
-        });
-
-        setRemainingDays(license.remainingDays);
-        setExpirationDate(license.expirationDate);
-        setLicenseStatus(license.status);
-      } else if (selectedOffer.kind === 'package') {
-        await purchaseWorkspacePackage(
-          workspaceId,
-          selectedOffer.packageCode,
-          Number(selectedOffer.days || 30),
-          selectedOffer.note || `Compra do pacote ${selectedOffer.title || selectedOffer.packageCode}`
-        );
-        onPackagePurchased?.();
-      }
-
-      setSelectedOffer(null);
-      playAlertSound(950, 0.35);
-      showToastRef.current(selectedOffer.successMessage || t.subscriptionRenewed);
-    } catch {
-      showToastRef.current(t.supabaseSaveError);
+      const nextOrder = result?.paymentOrder || null;
+      setPaymentOrder(nextOrder);
+      await handleFulfilledPaymentOrder(nextOrder);
+    } catch (error) {
+      setPaymentErrorMessage(error instanceof Error ? error.message : 'Nao foi possivel gerar a cobranca da NowPayments.');
     } finally {
-      setIsLicenseLoading(false);
+      setIsPreparingPayment(false);
+    }
+  };
+
+  const refreshPaymentCheckout = async () => {
+    if (!paymentOrder?.id) {
+      return;
+    }
+
+    setIsRefreshingPayment(true);
+    setPaymentErrorMessage('');
+
+    try {
+      const result = await getNowPaymentsPaymentStatus(paymentOrder.id);
+      const nextOrder = result?.paymentOrder || null;
+      setPaymentOrder(nextOrder);
+      await handleFulfilledPaymentOrder(nextOrder);
+    } catch (error) {
+      setPaymentErrorMessage(error instanceof Error ? error.message : 'Nao foi possivel verificar o status do pagamento agora.');
+    } finally {
+      setIsRefreshingPayment(false);
     }
   };
 
@@ -111,12 +229,17 @@ export function useLicenseState(workspaceId, isLoggedIn, isAdmin, showToast, pla
     isMembershipActive,
     isPremiumBlocked,
     isLicenseLoading,
-    showPixModal: selectedOffer,
-    setShowPixModal: setSelectedOffer,
-    pixAmount: Number(selectedOffer?.amount || 0),
-    pixTitle: selectedOffer?.title || '',
-    pixDescription: selectedOffer?.description || '',
+    nowPaymentsModalOffer: selectedOffer,
+    nowPaymentsPaymentOrder: paymentOrder,
+    nowPaymentsCurrencies: paymentCurrencies,
+    nowPaymentsSelectedCurrency: selectedPayCurrency,
+    setNowPaymentsSelectedCurrency: setSelectedPayCurrency,
+    nowPaymentsErrorMessage: paymentErrorMessage,
+    isNowPaymentsPreparing: isPreparingPayment,
+    isNowPaymentsRefreshing: isRefreshingPayment,
     buyDaysSimulate,
-    handlePixSuccess
+    closeNowPaymentsModal: resetPaymentState,
+    createPaymentCheckout,
+    refreshPaymentCheckout
   };
 }
