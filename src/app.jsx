@@ -415,6 +415,7 @@ export default function App() {
             handleCopyText={handleCopyText}
             t={ui.t}
             formatMoney={ui.formatMoney}
+            username={session.username}
             referralCode={session.referralCode}
             summary={affiliates.affiliateSummary}
             network={affiliates.affiliateNetwork}

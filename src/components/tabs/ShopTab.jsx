@@ -28,7 +28,7 @@ function FeatureList({ items }) {
   );
 }
 
-function PackageCard({ title, price, description, statusLabel, isActive, note, features, onBuy, ctaLabel, tone = 'default', formatMoney }) {
+function PackageCard({ title, price, description, highlight, statusLabel, isActive, note, features, onBuy, ctaLabel, tone = 'default', formatMoney }) {
   const toneClass = tone === 'highlight'
     ? 'border-[#FF6B00] shadow-md'
     : 'border-gray-200 shadow-sm dark:border-[#334155]';
@@ -46,7 +46,7 @@ function PackageCard({ title, price, description, statusLabel, isActive, note, f
       <p className="mt-5 text-4xl font-black text-orange-500 dark:text-orange-400">
         {formatMoney(price, 'USD')}
       </p>
-      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">30 dias de acesso ao pacote.</p>
+      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{highlight}</p>
 
       {note ? (
         <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/15 dark:text-amber-300">
@@ -106,14 +106,15 @@ export function ShopTab({
       packageCode: 'copy_trading_package',
       title: 'Pacote Copy Trading',
       amount: 40,
-      description: 'Libera exclusivamente o produto Copy Trading por 30 dias.',
+      description: 'Libera exclusivamente o produto Copy Trading para voce operar com mais confianca.',
+      highlight: 'Conecte sua conta e acompanhe cada movimento com mais seguranca.',
       successMessage: 'Pacote Copy Trading ativado com sucesso.',
       statusLabel: hasCopyAccess ? 'Ativo' : 'Inativo',
       isActive: hasCopyAccess,
       note: isMembershipActive ? 'Mensalidade validada. Este pacote ja pode liberar o Copy Trading.' : 'Este pacote exige a mensalidade conforme a tabela da banca.',
       features: [
         'Acesso ao Copy Trading',
-        'Janela de uso por 30 dias',
+        'Entrada objetiva para o modo Copy',
         'Sem liberar Automatizador ou listas'
       ]
     },
@@ -123,6 +124,7 @@ export function ShopTab({
       title: 'Pacote Automatizador + Listas',
       amount: 60,
       description: 'Libera o AutoTrader (Lista) e as 3 listas: OB, Cripto e Forex.',
+      highlight: 'Automatize a rotina e mantenha sua operacao sempre pronta para agir.',
       successMessage: 'Pacote Automatizador + Listas ativado com sucesso.',
       statusLabel: hasSignalsPackageAccess ? 'Ativo' : 'Inativo',
       isActive: hasSignalsPackageAccess,
@@ -140,10 +142,11 @@ export function ShopTab({
       title: 'Pacote Full Access',
       amount: 80,
       description: 'Libera todos os produtos: Copy Trading, Automatizador e as 3 listas.',
+      highlight: 'Leve o ecossistema completo do MagicBot para sua operacao.',
       successMessage: 'Pacote Full Access ativado com sucesso.',
       statusLabel: hasFullAccess ? 'Ativo' : 'Inativo',
       isActive: hasFullAccess,
-      note: isMembershipActive ? 'Mensalidade validada. Este e o pacote completo de 30 dias.' : 'Este pacote exige a mensalidade conforme a tabela da banca.',
+      note: isMembershipActive ? 'Mensalidade validada. Este e o pacote completo para quem quer operar sem limitar recursos.' : 'Este pacote exige a mensalidade conforme a tabela da banca.',
       features: [
         'Copy Trading',
         'AutoTrader (Lista)',
@@ -284,11 +287,12 @@ export function ShopTab({
             title={pkg.title}
             price={pkg.amount}
             description={pkg.description}
+            highlight={pkg.highlight}
             statusLabel={pkg.statusLabel}
             isActive={pkg.isActive}
             note={pkg.note}
             features={pkg.features}
-            ctaLabel="Comprar pacote de 30 dias"
+            ctaLabel="Ativar pacote agora"
             tone={index === 2 ? 'highlight' : 'default'}
             formatMoney={formatMoney}
             onBuy={() => buyDaysSimulate(pkg)}

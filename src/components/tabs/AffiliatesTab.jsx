@@ -274,6 +274,7 @@ export function AffiliatesTab({
   handleCopyText,
   t,
   formatMoney: formatMoneyProp,
+  username,
   referralCode,
   summary,
   network,
@@ -281,11 +282,13 @@ export function AffiliatesTab({
   isLoading
 }) {
   const [expandedRows, setExpandedRows] = useState(() => ({ 1: true, 2: true }));
+  const resolvedUsername = String(username || '').trim().toLowerCase();
   const resolvedReferralCode = String(referralCode || '').trim().toUpperCase();
   const configuredUrl = import.meta.env.VITE_APP_URL?.trim();
   const fallbackUrl = typeof window !== 'undefined' ? window.location.origin : '';
   const baseUrl = (configuredUrl || fallbackUrl).replace(/\/$/, '');
-  const referralLink = resolvedReferralCode ? `${baseUrl}/?ref=${encodeURIComponent(resolvedReferralCode)}` : '';
+  const referralReference = resolvedUsername || resolvedReferralCode;
+  const referralLink = referralReference ? `${baseUrl}/cadastro/${encodeURIComponent(referralReference)}` : '';
   const safeSummary = summary || {};
   const safeNetwork = network || {};
   const safeMatrix = matrix || {};

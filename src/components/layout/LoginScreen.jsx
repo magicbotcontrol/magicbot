@@ -32,6 +32,9 @@ export function LoginScreen({ handleLogIn, validateReferralCode, t, isAuthLoadin
 
     const rawFromPath = (() => {
       const pathname = url.pathname || '';
+      const matchSignup = pathname.match(/\/cadastro\/([^/]+)/i);
+      if (matchSignup?.[1]) return matchSignup[1];
+
       const matchEquals = pathname.match(/\/ref=([^/]+)/i);
       if (matchEquals?.[1]) return matchEquals[1];
 

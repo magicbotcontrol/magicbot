@@ -8,6 +8,11 @@ export function useSessionState(showToast, t) {
   const [authFeedback, setAuthFeedback] = useState(createAuthFeedback());
   const [profile, setProfile] = useState(null);
 
+  const buildUsernameFallback = (value) => {
+    const emailPrefix = String(value || '').trim().split('@')[0] || '';
+    return emailPrefix.toLowerCase().replace(/[^a-z0-9._]+/g, '');
+  };
+
   const clearAuthFeedback = () => {
     setAuthFeedback(createAuthFeedback());
   };
@@ -260,6 +265,7 @@ export function useSessionState(showToast, t) {
     user: session?.user || null,
     promoCode: session?.user?.user_metadata?.promo_code || '',
     profile,
+    username: buildUsernameFallback(profile?.email || session?.user?.email || ''),
     role: profile?.role || 'user',
     isAdmin: profile?.role === 'admin',
     referralCode: profile?.referral_code || '',
