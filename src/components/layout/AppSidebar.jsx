@@ -24,8 +24,10 @@ export function AppSidebar({ activeTab, setActiveTab, isSidebarOpen, currentColo
 
       <div className="flex-1 overflow-y-auto py-4 px-2 custom-scrollbar">
         {canShow('dashboard') ? <SidebarItem id="dashboard" icon={Icons.Dashboard} label={t.dashboard} active={activeTab === 'dashboard'} onClick={setActiveTab} collapsed={!isSidebarOpen} /> : null}
+        {canShow('account') ? <SidebarItem id="account" icon={Icons.User} label={t.myAccount} active={activeTab === 'account'} onClick={setActiveTab} collapsed={!isSidebarOpen} /> : null}
         {canShow('copy') ? <SidebarItem id="copy" icon={Icons.Copy} label={t.copy} active={activeTab === 'copy'} onClick={setActiveTab} collapsed={!isSidebarOpen} /> : null}
         {canShow('shop') ? <SidebarItem id="shop" icon={Icons.ShoppingBag} label={t.shop} active={activeTab === 'shop'} onClick={setActiveTab} collapsed={!isSidebarOpen} /> : null}
+        {canShow('affiliates') ? <SidebarItem id="affiliates" icon={Icons.Users} label={t.afiliado} active={activeTab === 'affiliates'} onClick={setActiveTab} collapsed={!isSidebarOpen} /> : null}
       </div>
     </aside>
   );

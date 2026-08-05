@@ -227,12 +227,6 @@ export function AppHeader({
                   </button>
                 </>
               ) : null}
-              <button onClick={() => { setActiveTab('account'); setIsProfileDropdownOpen(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center space-x-3 text-xs font-bold transition-all">
-                <Icons.User /> <span>{t.myAccount}</span>
-              </button>
-              <button onClick={() => { setActiveTab('affiliates'); setIsProfileDropdownOpen(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center space-x-3 text-xs font-bold transition-all">
-                <Icons.Users /> <span>{t.afiliado}</span>
-              </button>
               <button onClick={() => { showToast(t.officialTelegramAccess); playAlertSound(800, 0.15); setIsProfileDropdownOpen(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center space-x-3 text-xs font-bold transition-all">
                 <Icons.Telegram /> <span>{t.telegramGroup}</span>
               </button>

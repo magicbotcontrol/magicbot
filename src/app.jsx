@@ -72,7 +72,7 @@ export default function App() {
   const hasMembershipActive = session.isAdmin || license.isMembershipActive;
   const hasCopyAccess = session.isAdmin || (hasMembershipActive && copyEntitlement.isCopyTradingActive);
 
-  const visibleTabs = session.isAdmin ? null : ['dashboard', 'copy', 'shop'];
+  const visibleTabs = session.isAdmin ? null : ['dashboard', 'account', 'copy', 'shop', 'affiliates'];
 
   useEffect(() => {
     if (session.isAdmin) return;
@@ -389,9 +389,10 @@ export default function App() {
 
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-[#1E293B] border-t border-gray-200 dark:border-[#334155] h-16 flex justify-around items-center z-40 px-2 pb-safe overflow-visible">
         <MobileNavItem icon={Icons.Dashboard} label="Dash" active={ui.activeTab === 'dashboard'} onClick={() => ui.setActiveTab('dashboard')} />
+        <MobileNavItem icon={Icons.User} label="Conta" active={ui.activeTab === 'account'} onClick={() => ui.setActiveTab('account')} />
         <MobileNavItem prominent icon={Icons.Copy} label="Copy" active={ui.activeTab === 'copy'} onClick={() => ui.setActiveTab('copy')} />
         <MobileNavItem icon={Icons.ShoppingBag} label="Loja" active={ui.activeTab === 'shop'} onClick={() => ui.setActiveTab('shop')} />
-        <MobileNavItem icon={Icons.Menu} label="Menu" active={ui.isSidebarOpen} onClick={() => ui.setIsSidebarOpen(!ui.isSidebarOpen)} />
+        <MobileNavItem icon={Icons.Users} label="Afiliado" active={ui.activeTab === 'affiliates'} onClick={() => ui.setActiveTab('affiliates')} />
       </div>
 
       <BrokerLinkModal
