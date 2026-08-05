@@ -27,7 +27,7 @@ export function useUiState() {
     }
   };
 
-  const [activeTab, setActiveTab] = useState('signals');
+  const [activeTab, setActiveTab] = useState('copy');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
   const [hasNotifGlow, setHasNotifGlow] = useState(true);

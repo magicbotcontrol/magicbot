@@ -125,24 +125,12 @@ export function AdminTab({
   selectedWaiverUser,
   selectedChargeUser,
   chargePreview,
-  signalsFeedDate,
-  signalsFeedMarket,
-  signalsFeedAssets,
-  signalsFeedAsset,
-  signalsFeedAssetInput,
-  signalsFeedText,
-  isSignalsAutomatorMaintenanceActive,
   isAdminLoading,
   isWorkspaceDetailsLoading,
   isGrantingWaiver,
   isChargePreviewLoading,
   isChargingMembership,
   isUpdatingTestAccount,
-  isFeatureFlagsLoading,
-  isTogglingSignalsAutomatorMaintenance,
-  isSignalsFeedLoading,
-  isSignalsFeedSaving,
-  isGrantingSignalsAccess,
   openWorkspaceDetails,
   closeWorkspaceDetails,
   openWaiverModal,
@@ -151,27 +139,12 @@ export function AdminTab({
   closeChargeModal,
   confirmMonthlyWaiver,
   confirmMonthlyCharge,
-  toggleSignalsAutomatorMaintenance,
-  toggleTestAccount,
-  setSignalsFeedDate,
-  setSignalsFeedMarket,
-  setSignalsFeedAsset,
-  setSignalsFeedAssetInput,
-  setSignalsFeedText,
-  saveSignalsFeed,
-  grantDailyListAccess,
-  revokeDailyListAccess,
-  grantAutomatorAccess,
-  revokeAutomatorAccess,
-  grantSignalsBundleAccess,
-  revokeSignalsBundleAccess
+  toggleTestAccount
 }) {
   const quickCounters = [
     { label: 'Base ativa', value: workspacePackageCounters?.baseActive || 0, tone: 'emerald' },
     { label: 'Base inativa', value: workspacePackageCounters?.baseInactive || 0, tone: 'slate' },
     { label: 'Copy', value: workspacePackageCounters?.copy || 0, tone: 'orange' },
-    { label: 'Automatizador + Listas', value: workspacePackageCounters?.automatorLists || 0, tone: 'amber' },
-    { label: 'Full', value: workspacePackageCounters?.full || 0, tone: 'orange' },
     { label: 'Nenhum pacote', value: workspacePackageCounters?.none || 0, tone: 'slate' }
   ];
 
@@ -224,117 +197,6 @@ export function AdminTab({
       </div>
 
       <AdminCopyTradingCampaigns t={t} showToast={showToast} />
-
-      <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h3 className="text-base font-bold text-gray-900 dark:text-white">{t.adminFeatureAvailabilityTitle}</h3>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t.adminFeatureAvailabilitySubtitle}</p>
-          </div>
-          {isFeatureFlagsLoading ? <span className="text-xs font-semibold text-gray-400">{t.loadingSignals}</span> : null}
-        </div>
-
-        <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-[#334155] dark:bg-[#111827]">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-sm font-bold text-gray-900 dark:text-white">{t.signals}</p>
-              <p className="mt-1 text-sm text-gray-500 dark:text-[#94A3B8]">{t.adminSignalsMaintenanceDescription}</p>
-              <div className="mt-3">
-                <span className={`inline-flex rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] ${
-                  isSignalsAutomatorMaintenanceActive
-                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300'
-                    : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300'
-                }`}>
-                  {isSignalsAutomatorMaintenanceActive ? t.adminSignalsMaintenanceOn : t.adminSignalsMaintenanceOff}
-                </span>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={toggleSignalsAutomatorMaintenance}
-              disabled={isTogglingSignalsAutomatorMaintenance || isFeatureFlagsLoading}
-              className={`rounded-2xl px-4 py-3 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                isSignalsAutomatorMaintenanceActive
-                  ? 'bg-emerald-600 text-white hover:bg-emerald-500'
-                  : 'bg-amber-500 text-white hover:bg-amber-400'
-              }`}
-            >
-              {isTogglingSignalsAutomatorMaintenance
-                ? t.adminSignalsMaintenanceBusy
-                : isSignalsAutomatorMaintenanceActive
-                  ? t.adminSignalsMaintenanceAllowAction
-                  : t.adminSignalsMaintenanceBlockAction}
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h3 className="text-base font-bold text-gray-900 dark:text-white">Publicar Lista Diária</h3>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Cadastre listas separadas por sala (OB, Forex ou Cripto) e por ativo. Formato: `M5;ATIVO;HH:MM;CALL/PUT`.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <select
-              value={signalsFeedMarket}
-              onChange={(event) => setSignalsFeedMarket(event.target.value)}
-              className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#FF6B00] dark:border-[#334155] dark:bg-[#0B1220] dark:text-white"
-            >
-              <option value="ob">{t.live}</option>
-              <option value="forex">{t.strategies}</option>
-              <option value="crypto">{t.ai}</option>
-            </select>
-            <input
-              type="date"
-              value={signalsFeedDate}
-              onChange={(event) => setSignalsFeedDate(event.target.value)}
-              className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#FF6B00] dark:border-[#334155] dark:bg-[#0B1220] dark:text-white"
-            />
-            <select
-              value={signalsFeedAsset}
-              onChange={(event) => {
-                setSignalsFeedAsset(event.target.value);
-                setSignalsFeedAssetInput(event.target.value);
-              }}
-              className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#FF6B00] dark:border-[#334155] dark:bg-[#0B1220] dark:text-white"
-            >
-              {(signalsFeedAssets || []).length ? (signalsFeedAssets || []).map((feed) => (
-                <option key={feed.id} value={feed.asset}>{feed.asset}</option>
-              )) : (
-                <option value="">-</option>
-              )}
-            </select>
-            <input
-              value={signalsFeedAssetInput}
-              onChange={(event) => setSignalsFeedAssetInput(event.target.value.toUpperCase())}
-              placeholder="Ativo (ex: GBPUSD)"
-              className="w-[170px] rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#FF6B00] dark:border-[#334155] dark:bg-[#0B1220] dark:text-white"
-            />
-            <button
-              type="button"
-              onClick={saveSignalsFeed}
-              disabled={Boolean(isSignalsFeedSaving)}
-              className="rounded-xl bg-[#FFF7F0] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-[#B45309] transition-colors hover:bg-[#FFE6D2] disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#3A1E12] dark:text-[#FDBA74] dark:hover:bg-[#4A2514]"
-            >
-              {isSignalsFeedSaving ? 'Salvando...' : 'Publicar'}
-            </button>
-          </div>
-        </div>
-
-        <textarea
-          value={signalsFeedText}
-          onChange={(event) => setSignalsFeedText(event.target.value)}
-          placeholder="M5;EURGBP-OTC;09:45;CALL"
-          className="mt-4 min-h-[220px] w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 font-mono text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#FF6B00] dark:border-[#334155] dark:bg-[#0B1220] dark:text-white"
-        />
-        <div className="mt-3 text-xs font-semibold text-gray-400 dark:text-[#94A3B8]">
-          {isSignalsFeedLoading ? 'Carregando...' : `${signalsFeedText.split('\n').filter((line) => line.trim()).length} linhas prontas para publicação.`}
-        </div>
-      </section>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
@@ -415,8 +277,6 @@ export function AdminTab({
           >
             <option value="all">Todos</option>
             <option value="copy_trading_package">Copy</option>
-            <option value="automator_lists_package">Automatizador + Listas</option>
-            <option value="full_access_package">Full</option>
             <option value="none">Nenhum</option>
           </select>
         </div>
@@ -457,8 +317,6 @@ export function AdminTab({
                 <th className="px-4 py-3 text-left font-bold">{t.adminRole}</th>
                 <th className="px-4 py-3 text-left font-bold">{t.adminSubscription}</th>
                 <th className="px-4 py-3 text-left font-bold">{t.adminTimeLeft}</th>
-                <th className="px-4 py-3 text-left font-bold">{t.adminLists}</th>
-                <th className="px-4 py-3 text-left font-bold">{t.adminResult}</th>
                 <th className="px-4 py-3 text-left font-bold">{t.adminWorkspaceCount}</th>
                 <th className="px-4 py-3 text-left font-bold">{t.adminCreatedAt}</th>
                 <th className="px-4 py-3 text-left font-bold">{t.action}</th>
@@ -480,8 +338,6 @@ export function AdminTab({
                   </td>
                   <td className="px-4 py-3 text-gray-600 dark:text-[#CBD5E1]">{t[`adminSubscription${user.licenseAccessType.charAt(0).toUpperCase()}${user.licenseAccessType.slice(1)}`] || user.licenseAccessType}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-[#CBD5E1]">{t.adminDaysLeftCompact.replace('{days}', user.remainingDays)}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-[#CBD5E1]">{user.signalListsCount}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-[#CBD5E1]">{user.wins}W / {user.losses}L</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-[#CBD5E1]">{user.workspacesCount}</td>
                   <td className="px-4 py-3 text-gray-500 dark:text-[#94A3B8]">{formatDate(user.createdAt)}</td>
                   <td className="px-4 py-3">
@@ -518,7 +374,7 @@ export function AdminTab({
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan="9" className="px-4 py-6 text-center text-sm text-gray-500 dark:text-[#94A3B8]">
+                  <td colSpan="7" className="px-4 py-6 text-center text-sm text-gray-500 dark:text-[#94A3B8]">
                     {t.adminNoUsers}
                   </td>
                 </tr>
@@ -560,7 +416,7 @@ export function AdminTab({
             </div>
           ))}
         </div>
-        <ScrollableTableShell minWidthClass="min-w-[1440px]" hintLabel={t.swipeHint}>
+        <ScrollableTableShell minWidthClass="min-w-[1240px]" hintLabel={t.swipeHint}>
           <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-[#0F172A] text-gray-500 dark:text-[#94A3B8]">
               <tr>
@@ -571,8 +427,6 @@ export function AdminTab({
                 <th className="px-4 py-3 text-left font-bold">{t.adminHealthBrokers}</th>
                 <th className="px-4 py-3 text-left font-bold">Mensalidade base</th>
                 <th className="px-4 py-3 text-left font-bold">Pacote atual</th>
-                <th className="px-4 py-3 text-left font-bold">{t.adminLists}</th>
-                <th className="px-4 py-3 text-left font-bold">{t.adminResult}</th>
                 <th className="px-4 py-3 text-left font-bold">{t.adminCreatedAt}</th>
               </tr>
             </thead>
@@ -599,8 +453,6 @@ export function AdminTab({
                   <td className="px-4 py-3">
                     <PackageSummary label={workspace.packageLabel} status={workspace.packageStatus} />
                   </td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-[#CBD5E1]">{workspace.signalListsCount}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-[#CBD5E1]">{workspace.wins}W / {workspace.losses}L</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-gray-500 dark:text-[#94A3B8]">{formatDate(workspace.createdAt)}</span>
@@ -616,7 +468,7 @@ export function AdminTab({
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan="10" className="px-4 py-6 text-center text-sm text-gray-500 dark:text-[#94A3B8]">
+                  <td colSpan="8" className="px-4 py-6 text-center text-sm text-gray-500 dark:text-[#94A3B8]">
                     {t.adminNoWorkspaces}
                   </td>
                 </tr>
@@ -641,13 +493,6 @@ export function AdminTab({
         details={workspaceDetails}
         isLoading={isWorkspaceDetailsLoading}
         t={t}
-        grantDailyListAccess={grantDailyListAccess}
-        revokeDailyListAccess={revokeDailyListAccess}
-        grantAutomatorAccess={grantAutomatorAccess}
-        revokeAutomatorAccess={revokeAutomatorAccess}
-        grantSignalsBundleAccess={grantSignalsBundleAccess}
-        revokeSignalsBundleAccess={revokeSignalsBundleAccess}
-        isGrantingSignalsAccess={isGrantingSignalsAccess}
       />
 
       <AdminGrantWaiverModal

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { getWorkspaceEntitlement } from '../services/supabaseEntitlements';
+import { getWorkspaceCopyTradingEntitlement } from '../services/supabaseEntitlements';
 
 const EMPTY = {
   status: 'inactive',
@@ -29,7 +29,7 @@ export function useCopyTradingEntitlementState(workspaceId, isLoggedIn, showToas
 
     setIsCopyEntitlementLoading(true);
 
-    getWorkspaceEntitlement(workspaceId, 'copy_trading')
+    getWorkspaceCopyTradingEntitlement(workspaceId)
       .then((entitlement) => {
         if (!mounted) return;
         setCopyEntitlement(entitlement || EMPTY);

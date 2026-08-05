@@ -78,9 +78,7 @@ export function ShopTab({
   isMembershipActive,
   membershipExpirationDate,
   monthlyBankrollUsd,
-  hasCopyAccess,
-  hasSignalsPackageAccess,
-  hasFullAccess
+  hasCopyAccess
 }) {
   const membershipTier = resolveMonthlyTier(monthlyBankrollUsd);
   const hasDetectedBankroll = Number.isFinite(Number(monthlyBankrollUsd)) && Number(monthlyBankrollUsd) > 0;
@@ -117,43 +115,6 @@ export function ShopTab({
         'Entrada objetiva para o modo Copy',
         'Sem liberar Automatizador ou listas'
       ]
-    },
-    {
-      kind: 'package',
-      packageCode: 'automator_lists_package',
-      title: 'Pacote Automatizador + Listas',
-      amount: 60,
-      description: 'Libera o AutoTrader (Lista) e as 3 listas: OB, Cripto e Forex.',
-      highlight: 'Automatize a rotina e mantenha sua operacao sempre pronta para agir.',
-      successMessage: 'Pacote Automatizador + Listas ativado com sucesso.',
-      statusLabel: hasSignalsPackageAccess ? 'Ativo' : 'Inativo',
-      isActive: hasSignalsPackageAccess,
-      note: isMembershipActive ? 'Mensalidade validada. O pacote cobre AutoTrader e as listas de sinais.' : 'Este pacote exige a mensalidade conforme a tabela da banca.',
-      features: [
-        'AutoTrader (Lista)',
-        'Sinais Diários OB',
-        'Sinais Diários Cripto',
-        'Sinais Diários Forex'
-      ]
-    },
-    {
-      kind: 'package',
-      packageCode: 'full_access_package',
-      title: 'Pacote Full Access',
-      amount: 80,
-      description: 'Libera todos os produtos: Copy Trading, Automatizador e as 3 listas.',
-      highlight: 'Leve o ecossistema completo do MagicBot para sua operacao.',
-      successMessage: 'Pacote Full Access ativado com sucesso.',
-      statusLabel: hasFullAccess ? 'Ativo' : 'Inativo',
-      isActive: hasFullAccess,
-      note: isMembershipActive ? 'Mensalidade validada. Este e o pacote completo para quem quer operar sem limitar recursos.' : 'Este pacote exige a mensalidade conforme a tabela da banca.',
-      features: [
-        'Copy Trading',
-        'AutoTrader (Lista)',
-        'Sinais Diários OB',
-        'Sinais Diários Cripto',
-        'Sinais Diários Forex'
-      ]
     }
   ];
 
@@ -165,7 +126,7 @@ export function ShopTab({
         </span>
         <h2 className="text-2xl font-black text-gray-900 dark:text-white md:text-3xl">Ative sua mensalidade e escolha o pacote</h2>
         <p className="mx-auto max-w-3xl text-sm text-gray-500 dark:text-gray-400">
-          A mensalidade agora segue a faixa da sua banca, com valor inicial de {formatMoney(DEFAULT_MONTHLY_AMOUNT, 'USD')}. Os demais pacotes permanecem com os mesmos valores.
+          A mensalidade agora segue a faixa da sua banca, com valor inicial de {formatMoney(DEFAULT_MONTHLY_AMOUNT, 'USD')}.
         </p>
       </div>
 
@@ -196,7 +157,7 @@ export function ShopTab({
         <FeatureList items={[
           `Mensalidade inicial de ${formatMoney(DEFAULT_MONTHLY_AMOUNT, 'USD')}`,
           'Tabela mensal conforme o valor da banca',
-          'Obrigatoria para Copy Trading, AutoTrader e listas'
+          'Obrigatoria para o Copy Trading'
         ]} />
 
         <button
@@ -293,7 +254,7 @@ export function ShopTab({
             note={pkg.note}
             features={pkg.features}
             ctaLabel="Ativar pacote agora"
-            tone={index === 2 ? 'highlight' : 'default'}
+            tone={index === 0 ? 'highlight' : 'default'}
             formatMoney={formatMoney}
             onBuy={() => buyDaysSimulate(pkg)}
           />
@@ -302,21 +263,11 @@ export function ShopTab({
 
       <section className="rounded-[28px] border border-dashed border-[#FF6B00] bg-white p-7 shadow-sm dark:border-[#FF8A3D] dark:bg-[#1E293B]">
         <h3 className="text-lg font-black text-gray-900 dark:text-white">Como o acesso fica distribuído</h3>
-        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-[#334155] dark:bg-[#0B1220]">
             <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">Pacote 1</p>
             <p className="mt-2 text-sm font-bold text-gray-900 dark:text-white">Copy Trading</p>
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Mensalidade conforme a banca + pacote de {formatMoney(40, 'USD')}.</p>
-          </div>
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-[#334155] dark:bg-[#0B1220]">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">Pacote 2</p>
-            <p className="mt-2 text-sm font-bold text-gray-900 dark:text-white">Automatizador + 3 Listas</p>
-            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Mensalidade conforme a banca + pacote de {formatMoney(60, 'USD')}.</p>
-          </div>
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-[#334155] dark:bg-[#0B1220]">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">Pacote 3</p>
-            <p className="mt-2 text-sm font-bold text-gray-900 dark:text-white">Acesso a todos os produtos</p>
-            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Mensalidade conforme a banca + pacote de {formatMoney(80, 'USD')}.</p>
           </div>
         </div>
       </section>

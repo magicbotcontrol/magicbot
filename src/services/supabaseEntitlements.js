@@ -44,12 +44,8 @@ export async function getWorkspaceEntitlement(workspaceId, productCode) {
   return mapEntitlement(data);
 }
 
-export async function getWorkspaceSignalsEntitlement(workspaceId) {
-  return getWorkspaceEntitlement(workspaceId, 'signals_daily_list');
-}
-
-export async function getWorkspaceAutomatorEntitlement(workspaceId) {
-  return getWorkspaceEntitlement(workspaceId, 'signals_automator');
+export async function getWorkspaceCopyTradingEntitlement(workspaceId) {
+  return getWorkspaceEntitlement(workspaceId, 'copy_trading');
 }
 
 export async function purchaseWorkspacePackage(workspaceId, packageCode, days = 30, note = '') {
@@ -58,75 +54,6 @@ export async function purchaseWorkspacePackage(workspaceId, packageCode, days = 
     p_workspace_id: workspaceId,
     p_package_code: packageCode,
     p_days: days,
-    p_note: note || ''
-  });
-
-  if (result.error) throw result.error;
-  return result.data;
-}
-
-export async function adminGrantSignalsEntitlement(workspaceId, days, note) {
-  assertSupabase();
-  const result = await supabase.rpc('grant_signals_list_access', {
-    p_workspace_id: workspaceId,
-    p_days: days,
-    p_note: note || ''
-  });
-
-  if (result.error) throw result.error;
-  return result.data;
-}
-
-export async function adminRevokeSignalsEntitlement(workspaceId, note) {
-  assertSupabase();
-  const result = await supabase.rpc('revoke_signals_list_access', {
-    p_workspace_id: workspaceId,
-    p_note: note || ''
-  });
-
-  if (result.error) throw result.error;
-  return result.data;
-}
-
-export async function adminGrantAutomatorEntitlement(workspaceId, days, note) {
-  assertSupabase();
-  const result = await supabase.rpc('grant_signals_automator_access', {
-    p_workspace_id: workspaceId,
-    p_days: days,
-    p_note: note || ''
-  });
-
-  if (result.error) throw result.error;
-  return result.data;
-}
-
-export async function adminRevokeAutomatorEntitlement(workspaceId, note) {
-  assertSupabase();
-  const result = await supabase.rpc('revoke_signals_automator_access', {
-    p_workspace_id: workspaceId,
-    p_note: note || ''
-  });
-
-  if (result.error) throw result.error;
-  return result.data;
-}
-
-export async function adminGrantSignalsBundleEntitlement(workspaceId, days, note) {
-  assertSupabase();
-  const result = await supabase.rpc('grant_signals_bundle_access', {
-    p_workspace_id: workspaceId,
-    p_days: days,
-    p_note: note || ''
-  });
-
-  if (result.error) throw result.error;
-  return result.data;
-}
-
-export async function adminRevokeSignalsBundleEntitlement(workspaceId, note) {
-  assertSupabase();
-  const result = await supabase.rpc('revoke_signals_bundle_access', {
-    p_workspace_id: workspaceId,
     p_note: note || ''
   });
 

@@ -1,4 +1,14 @@
 import { Icons } from '../../constants/icons';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  createCopyTradingVideoItem,
+  getCopyTradingAccess,
+  getCopyTradingIqAccount,
+  getCopyTradingVideos,
+  getCopyTradingVideosAdmin,
+  submitMyCopyTradingIqId,
+  updateCopyTradingVideoItem
+} from '../../services/supabaseCopyTradingPhase1';
 
 function formatEntitlementDate(value) {
   if (!value) return '--';
@@ -18,7 +28,29 @@ function buildUrl(base, params) {
   return url.toString();
 }
 
-export function CopyTab({ showToast, t, promoCode, copyEntitlement, isCopyTradingActive, isCopyEntitlementLoading }) {
+function AccessBadge({ active, label }) {
+  return (
+    <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-bold ${
+      active ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300' : 'bg-gray-100 text-gray-600 dark:bg-[#0B1220] dark:text-[#94A3B8]'
+    }`}>
+      {active ? <Icons.CheckCircle /> : <Icons.XCircle />}
+      {label}
+    </span>
+  );
+}
+
+export function CopyTab({
+  showToast,
+  t,
+  promoCode,
+  copyEntitlement,
+  isCopyTradingActive,
+  isCopyEntitlementLoading,
+  workspaceId,
+  isLoggedIn,
+  isAdmin,
+  setActiveTab
+}) {
   const registrationUrl = buildUrl('https://controlcopyiq.com/c/MAGICBOT', {
     source: 'magiccopybot',
     promo: (promoCode || '').trim().toUpperCase() || null
@@ -31,6 +63,182 @@ export function CopyTab({ showToast, t, promoCode, copyEntitlement, isCopyTradin
     if (typeof window === 'undefined') return;
     window.open(url, '_blank', 'noopener,noreferrer');
   };
+
+  const [activeVideoTab, setActiveVideoTab] = useState('pre_access');
+  const [iqIdInput, setIqIdInput] = useState('');
+  const [iqAccount, setIqAccount] = useState(null);
+  const [isIqLoading, setIsIqLoading] = useState(false);
+  const [isIqSaving, setIsIqSaving] = useState(false);
+  const [accessState, setAccessState] = useState({ canViewContent: false, canOperateCopy: false });
+  const [isAccessLoading, setIsAccessLoading] = useState(false);
+  const [videos, setVideos] = useState([]);
+  const [isVideosLoading, setIsVideosLoading] = useState(false);
+  const [adminVideos, setAdminVideos] = useState([]);
+  const [isAdminVideosLoading, setIsAdminVideosLoading] = useState(false);
+  const [videoForm, setVideoForm] = useState({
+    segment: 'pre_access',
+    title: '',
+    video_url: '',
+    description: '',
+    sort_order: '0',
+    is_active: true
+  });
+  const [isCreatingVideo, setIsCreatingVideo] = useState(false);
+
+  const reloadAccessAndIq = async () => {
+    if (!isLoggedIn || !workspaceId) {
+      setIqAccount(null);
+      setAccessState({ canViewContent: false, canOperateCopy: false });
+      return;
+    }
+
+    setIsAccessLoading(true);
+    setIsIqLoading(true);
+
+    try {
+      const [account, access] = await Promise.all([
+        getCopyTradingIqAccount(workspaceId),
+        getCopyTradingAccess()
+      ]);
+      setIqAccount(account);
+      setAccessState(access);
+      if (account?.iq_id && !iqIdInput) {
+        setIqIdInput(String(account.iq_id));
+      }
+    } catch {
+      showToast?.(t?.supabaseSyncError || 'Nao foi possivel sincronizar agora.');
+    } finally {
+      setIsAccessLoading(false);
+      setIsIqLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    reloadAccessAndIq();
+  }, [isLoggedIn, workspaceId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      if (!isLoggedIn) {
+        setVideos([]);
+        setAdminVideos([]);
+        return;
+      }
+
+      if (isAdmin && activeVideoTab === 'manage') {
+        setIsAdminVideosLoading(true);
+        try {
+          const rows = await getCopyTradingVideosAdmin();
+          if (cancelled) return;
+          setAdminVideos(rows);
+        } catch {
+          if (cancelled) return;
+          showToast?.(t?.supabaseSyncError || 'Nao foi possivel sincronizar agora.');
+        } finally {
+          if (cancelled) return;
+          setIsAdminVideosLoading(false);
+        }
+        return;
+      }
+
+      setIsVideosLoading(true);
+      try {
+        const rows = await getCopyTradingVideos(activeVideoTab);
+        if (cancelled) return;
+        setVideos(rows);
+      } catch {
+        if (cancelled) return;
+        showToast?.(t?.supabaseSyncError || 'Nao foi possivel sincronizar agora.');
+      } finally {
+        if (cancelled) return;
+        setIsVideosLoading(false);
+      }
+    };
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeVideoTab, isAdmin, isLoggedIn]);
+
+  const handleSubmitIqId = async () => {
+    const cleaned = String(iqIdInput || '').trim();
+    if (!cleaned) {
+      showToast?.('Informe seu ID da IQ Option.');
+      return;
+    }
+
+    setIsIqSaving(true);
+    try {
+      await submitMyCopyTradingIqId(cleaned);
+      showToast?.('ID enviado com sucesso.');
+      await reloadAccessAndIq();
+    } catch (error) {
+      showToast?.(error instanceof Error ? error.message : 'Nao foi possivel salvar seu ID agora.');
+    } finally {
+      setIsIqSaving(false);
+    }
+  };
+
+  const handleCreateVideo = async () => {
+    const payload = {
+      segment: String(videoForm.segment || 'pre_access'),
+      title: String(videoForm.title || '').trim(),
+      video_url: String(videoForm.video_url || '').trim(),
+      description: String(videoForm.description || '').trim(),
+      sort_order: Math.max(0, Math.round(Number(videoForm.sort_order || 0))),
+      is_active: Boolean(videoForm.is_active)
+    };
+
+    if (!payload.title || !payload.video_url) {
+      showToast?.('Informe titulo e URL do video.');
+      return;
+    }
+
+    setIsCreatingVideo(true);
+    try {
+      await createCopyTradingVideoItem(payload);
+      setVideoForm({
+        segment: payload.segment,
+        title: '',
+        video_url: '',
+        description: '',
+        sort_order: String(payload.sort_order),
+        is_active: true
+      });
+      const rows = await getCopyTradingVideosAdmin();
+      setAdminVideos(rows);
+      showToast?.('Video publicado.');
+    } catch (error) {
+      showToast?.(error instanceof Error ? error.message : 'Nao foi possivel publicar o video.');
+    } finally {
+      setIsCreatingVideo(false);
+    }
+  };
+
+  const handleToggleVideoActive = async (item) => {
+    if (!item?.id) return;
+    try {
+      const updated = await updateCopyTradingVideoItem(item.id, { is_active: !item.is_active });
+      setAdminVideos((current) => current.map((row) => (row.id === updated.id ? updated : row)));
+      showToast?.(updated.is_active ? 'Video ativado.' : 'Video desativado.');
+    } catch (error) {
+      showToast?.(error instanceof Error ? error.message : 'Nao foi possivel atualizar o video.');
+    }
+  };
+
+  const contentStatusLabel = useMemo(() => {
+    if (isAccessLoading) return 'Conteudo: carregando';
+    return accessState.canViewContent ? 'Conteudo liberado' : 'Conteudo bloqueado';
+  }, [accessState.canViewContent, isAccessLoading]);
+
+  const operationalStatusLabel = useMemo(() => {
+    if (isAccessLoading) return 'Operacional: carregando';
+    return accessState.canOperateCopy ? 'Copy operacional liberado' : 'Copy operacional bloqueado';
+  }, [accessState.canOperateCopy, isAccessLoading]);
 
   const steps = [
     { title: t.copyStep1Title, description: t.copyStep1Description },
@@ -83,8 +291,9 @@ export function CopyTab({ showToast, t, promoCode, copyEntitlement, isCopyTradin
             <h3 className="text-base font-bold text-gray-900 dark:text-white">{t.copyStatusTitle}</h3>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t.copyStatusSubtitle}</p>
           </div>
-          <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-bold ${isCopyTradingActive ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300' : 'bg-gray-100 text-gray-600 dark:bg-[#0B1220] dark:text-[#94A3B8]'}`}>
-            {isCopyEntitlementLoading ? t.copyStatusLoading : (isCopyTradingActive ? t.copyStatusActive : t.copyStatusInactive)}
+          <div className="flex flex-wrap items-center gap-2">
+            <AccessBadge active={accessState.canViewContent} label={contentStatusLabel} />
+            <AccessBadge active={accessState.canOperateCopy} label={operationalStatusLabel} />
           </div>
         </div>
 
@@ -108,6 +317,19 @@ export function CopyTab({ showToast, t, promoCode, copyEntitlement, isCopyTradin
             </p>
           </div>
         </div>
+
+        {!accessState.canOperateCopy ? (
+          <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/15 dark:text-amber-300 sm:flex-row sm:items-center sm:justify-between">
+            <span>Para iniciar o Copy operacional, voce precisa da mensalidade (com carencia de 3 dias) e do Pacote Copy Trading ativo.</span>
+            <button
+              type="button"
+              onClick={() => setActiveTab?.('shop')}
+              className="rounded-xl bg-[#FF6B00] px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-[#FF7F1F]"
+            >
+              Ir para a Loja
+            </button>
+          </div>
+        ) : null}
       </section>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -116,6 +338,33 @@ export function CopyTab({ showToast, t, promoCode, copyEntitlement, isCopyTradin
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t.copyQuickSetupSubtitle}</p>
 
           <div className="mt-4 space-y-3">
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-[#334155] dark:bg-[#0B1220]">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">Seu ID da IQ Option</p>
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Esse ID desbloqueia o acesso ao seu ambiente do Copy. Ele precisa ser unico.</p>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  value={iqIdInput}
+                  onChange={(e) => setIqIdInput(e.target.value)}
+                  placeholder="Digite seu ID"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 outline-none transition-colors focus:border-[#FF6B00] dark:border-[#334155] dark:bg-[#0B1220] dark:text-white"
+                  disabled={isIqLoading || isIqSaving || !isLoggedIn}
+                />
+                <button
+                  type="button"
+                  onClick={handleSubmitIqId}
+                  disabled={isIqLoading || isIqSaving || !isLoggedIn}
+                  className="rounded-xl bg-[#FF6B00] px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-[#FF7F1F] disabled:opacity-60"
+                >
+                  {isIqSaving ? 'Salvando...' : 'Salvar ID'}
+                </button>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-gray-600 dark:text-[#CBD5E1]">
+                <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 dark:bg-[#111827]">
+                  {isIqLoading ? 'Status: carregando' : (iqAccount?.iq_id ? `ID cadastrado: ${String(iqAccount.iq_id)}` : 'ID nao cadastrado')}
+                </span>
+              </div>
+            </div>
+
             <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-[#334155] dark:bg-[#0B1220]">
               <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">{t.copyLinkRegisterLabel}</p>
               <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -170,6 +419,192 @@ export function CopyTab({ showToast, t, promoCode, copyEntitlement, isCopyTradin
           </div>
         </section>
       </div>
+
+      <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-base font-bold text-gray-900 dark:text-white">Videos do Copy Trading</h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Antes do acesso: funil. Depois do acesso: guia e resultados.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveVideoTab('pre_access')}
+              className={`rounded-xl px-4 py-2 text-xs font-bold transition-colors ${
+                activeVideoTab === 'pre_access'
+                  ? 'bg-[#FF6B00] text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-[#0B1220] dark:text-[#E2E8F0] dark:hover:bg-[#111827]'
+              }`}
+            >
+              Antes do acesso
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveVideoTab('post_access')}
+              className={`rounded-xl px-4 py-2 text-xs font-bold transition-colors ${
+                activeVideoTab === 'post_access'
+                  ? 'bg-[#FF6B00] text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-[#0B1220] dark:text-[#E2E8F0] dark:hover:bg-[#111827]'
+              }`}
+            >
+              Depois do acesso
+            </button>
+            {isAdmin ? (
+              <button
+                type="button"
+                onClick={() => setActiveVideoTab('manage')}
+                className={`rounded-xl px-4 py-2 text-xs font-bold transition-colors ${
+                  activeVideoTab === 'manage'
+                    ? 'bg-[#FF6B00] text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-[#0B1220] dark:text-[#E2E8F0] dark:hover:bg-[#111827]'
+                }`}
+              >
+                Postar videos
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        {activeVideoTab === 'manage' && isAdmin ? (
+          <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-[#334155] dark:bg-[#0B1220]">
+              <p className="text-sm font-bold text-gray-900 dark:text-white">Novo video</p>
+              <div className="mt-3 grid grid-cols-1 gap-3">
+                <select
+                  value={videoForm.segment}
+                  onChange={(e) => setVideoForm((s) => ({ ...s, segment: e.target.value }))}
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 outline-none dark:border-[#334155] dark:bg-[#111827] dark:text-white"
+                >
+                  <option value="pre_access">Antes do acesso</option>
+                  <option value="post_access">Depois do acesso</option>
+                </select>
+                <input
+                  value={videoForm.title}
+                  onChange={(e) => setVideoForm((s) => ({ ...s, title: e.target.value }))}
+                  placeholder="Titulo"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 outline-none transition-colors focus:border-[#FF6B00] dark:border-[#334155] dark:bg-[#111827] dark:text-white"
+                />
+                <input
+                  value={videoForm.video_url}
+                  onChange={(e) => setVideoForm((s) => ({ ...s, video_url: e.target.value }))}
+                  placeholder="URL do video (YouTube, Vimeo, etc.)"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 outline-none transition-colors focus:border-[#FF6B00] dark:border-[#334155] dark:bg-[#111827] dark:text-white"
+                />
+                <textarea
+                  value={videoForm.description}
+                  onChange={(e) => setVideoForm((s) => ({ ...s, description: e.target.value }))}
+                  placeholder="Descricao (opcional)"
+                  rows={3}
+                  className="w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 outline-none transition-colors focus:border-[#FF6B00] dark:border-[#334155] dark:bg-[#111827] dark:text-white"
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    value={videoForm.sort_order}
+                    onChange={(e) => setVideoForm((s) => ({ ...s, sort_order: e.target.value }))}
+                    placeholder="Ordem"
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 outline-none transition-colors focus:border-[#FF6B00] dark:border-[#334155] dark:bg-[#111827] dark:text-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setVideoForm((s) => ({ ...s, is_active: !s.is_active }))}
+                    className={`rounded-xl px-4 py-2 text-xs font-bold transition-colors ${
+                      videoForm.is_active
+                        ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300'
+                        : 'bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-200'
+                    }`}
+                  >
+                    {videoForm.is_active ? 'Ativo' : 'Inativo'}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCreateVideo}
+                  disabled={isCreatingVideo}
+                  className="rounded-xl bg-[#FF6B00] px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-[#FF7F1F] disabled:opacity-60"
+                >
+                  {isCreatingVideo ? 'Publicando...' : 'Publicar'}
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-[#334155] dark:bg-[#0B1220]">
+              <p className="text-sm font-bold text-gray-900 dark:text-white">Videos publicados</p>
+              <div className="mt-3 space-y-3">
+                {isAdminVideosLoading ? (
+                  <div className="text-sm font-semibold text-gray-500 dark:text-gray-400">Carregando...</div>
+                ) : adminVideos.length ? (
+                  adminVideos.map((item) => (
+                    <div key={item.id} className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-[#334155] dark:bg-[#111827]">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-gray-900 dark:text-white">{item.title}</p>
+                          <p className="mt-1 text-xs font-semibold text-gray-500 dark:text-gray-400">
+                            {item.segment === 'post_access' ? 'Depois do acesso' : 'Antes do acesso'} · ordem {Number(item.sort_order || 0)}
+                          </p>
+                          {item.description ? (
+                            <p className="mt-2 text-xs text-gray-600 dark:text-gray-300">{item.description}</p>
+                          ) : null}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleOpen(item.video_url)}
+                            className="rounded-xl bg-gray-100 px-3 py-2 text-xs font-bold text-gray-800 transition-colors hover:bg-gray-200 dark:bg-[#0B1220] dark:text-white dark:hover:bg-[#0F172A]"
+                          >
+                            Abrir
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleVideoActive(item)}
+                            className={`rounded-xl px-3 py-2 text-xs font-bold transition-colors ${
+                              item.is_active
+                                ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300'
+                                : 'bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-200'
+                            }`}
+                          >
+                            {item.is_active ? 'Ativo' : 'Inativo'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-sm font-semibold text-gray-500 dark:text-gray-400">Nenhum video ainda.</div>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-5 space-y-3">
+            {isVideosLoading ? (
+              <div className="text-sm font-semibold text-gray-500 dark:text-gray-400">Carregando...</div>
+            ) : videos.length ? (
+              videos.map((item) => (
+                <div key={item.id} className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-[#334155] dark:bg-[#0B1220]">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-gray-900 dark:text-white">{item.title}</p>
+                      {item.description ? (
+                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{item.description}</p>
+                      ) : null}
+                      <p className="mt-2 break-all text-xs font-mono text-gray-600 dark:text-gray-300">{item.video_url}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleOpen(item.video_url)}
+                      className="rounded-xl bg-[#FF6B00] px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-[#FF7F1F]"
+                    >
+                      Assistir
+                    </button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-sm font-semibold text-gray-500 dark:text-gray-400">Nenhum video disponivel agora.</div>
+            )}
+          </div>
+        )}
+      </section>
 
       <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
         <h3 className="text-base font-bold text-gray-900 dark:text-white">{t.copyChecklistTitle}</h3>

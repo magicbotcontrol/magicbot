@@ -1,10 +1,17 @@
 import { supabase, supabaseEnabled } from '../lib/supabase/client';
 
-export const SIGNALS_AUTOMATOR_MAINTENANCE_KEY = 'signals_automator_maintenance';
+export const PHASE1_COPYTRADING_ONLY_KEY = 'phase1_copytrading_only';
+export const SHOP_HIDE_LEGACY_PACKAGES_KEY = 'shop_hide_legacy_packages';
 
 const DEFAULT_FEATURE_FLAGS = {
-  [SIGNALS_AUTOMATOR_MAINTENANCE_KEY]: {
-    featureKey: SIGNALS_AUTOMATOR_MAINTENANCE_KEY,
+  [PHASE1_COPYTRADING_ONLY_KEY]: {
+    featureKey: PHASE1_COPYTRADING_ONLY_KEY,
+    isEnabled: false,
+    note: '',
+    updatedAt: null
+  },
+  [SHOP_HIDE_LEGACY_PACKAGES_KEY]: {
+    featureKey: SHOP_HIDE_LEGACY_PACKAGES_KEY,
     isEnabled: false,
     note: '',
     updatedAt: null

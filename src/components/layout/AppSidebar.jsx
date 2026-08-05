@@ -24,13 +24,8 @@ export function AppSidebar({ activeTab, setActiveTab, isSidebarOpen, currentColo
 
       <div className="flex-1 overflow-y-auto py-4 px-2 custom-scrollbar">
         {canShow('dashboard') ? <SidebarItem id="dashboard" icon={Icons.Dashboard} label={t.dashboard} active={activeTab === 'dashboard'} onClick={setActiveTab} collapsed={!isSidebarOpen} /> : null}
-        {canShow('signals') ? <SidebarItem id="signals" icon={Icons.Signals} label={t.signals} active={activeTab === 'signals'} onClick={setActiveTab} collapsed={!isSidebarOpen} /> : null}
-        {canShow('live') ? <SidebarItem id="live" icon={Icons.Activity} label={t.live} active={activeTab === 'live'} onClick={setActiveTab} collapsed={!isSidebarOpen} /> : null}
-        {canShow('strategies') ? <SidebarItem id="strategies" icon={Icons.Globe} label={t.strategies} active={activeTab === 'strategies'} onClick={setActiveTab} collapsed={!isSidebarOpen} /> : null}
-        {canShow('ai') ? <SidebarItem id="ai" icon={Icons.Wallet} label={t.ai} active={activeTab === 'ai'} onClick={setActiveTab} collapsed={!isSidebarOpen} /> : null}
         {canShow('copy') ? <SidebarItem id="copy" icon={Icons.Copy} label={t.copy} active={activeTab === 'copy'} onClick={setActiveTab} collapsed={!isSidebarOpen} /> : null}
-        {canShow('settings') ? <SidebarItem id="settings" icon={Icons.Settings} label={t.settings} active={activeTab === 'settings'} onClick={setActiveTab} collapsed={!isSidebarOpen} /> : null}
-        {canShow('shop') ? <SidebarItem id="shop" icon={Icons.ShoppingBag} label="Loja" active={activeTab === 'shop'} onClick={setActiveTab} collapsed={!isSidebarOpen} /> : null}
+        {canShow('shop') ? <SidebarItem id="shop" icon={Icons.ShoppingBag} label={t.shop} active={activeTab === 'shop'} onClick={setActiveTab} collapsed={!isSidebarOpen} /> : null}
       </div>
     </aside>
   );

@@ -1,14 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { getAdminOverview, getAdminWorkspaceDetails, updateAdminProfileTestAccount } from '../services/supabaseAdmin';
-import { getAdminDailySignalFeed, listAdminDailySignalFeeds, saveAdminDailySignalFeed } from '../services/supabaseAdminSignals';
-import {
-  adminGrantAutomatorEntitlement,
-  adminGrantSignalsBundleEntitlement,
-  adminGrantSignalsEntitlement,
-  adminRevokeAutomatorEntitlement,
-  adminRevokeSignalsBundleEntitlement,
-  adminRevokeSignalsEntitlement
-} from '../services/supabaseEntitlements';
 import { adminChargeUserMonthlyMembership, grantUserMonthlyWaiver } from '../services/supabaseLicense';
 import { DEFAULT_MONTHLY_AMOUNT, resolveHighestBankroll, resolveMonthlyTier } from '../utils/monthlyPricing';
 
@@ -71,9 +62,7 @@ function applyWorkspaceFilters(workspaces, filters) {
     const packageMatches =
       packageQuery === 'all'
       || (packageQuery === 'copy_trading_package' && workspace.packageCode === 'copy_trading_package')
-      || (packageQuery === 'automator_lists_package' && workspace.packageCode === 'automator_lists_package')
-      || (packageQuery === 'full_access_package' && workspace.packageCode === 'full_access_package')
-      || (packageQuery === 'none' && !workspace.packageCode);
+      || (packageQuery === 'none' && workspace.packageCode !== 'copy_trading_package');
     return slugMatches && ownerMatches && runtimeMatches && brokersMatches && testMatches && membershipMatches && packageMatches;
   });
 }
@@ -126,15 +115,6 @@ export function useAdminState(isAdmin, showToast, t) {
   const [isChargePreviewLoading, setIsChargePreviewLoading] = useState(false);
   const [isChargingMembership, setIsChargingMembership] = useState(false);
   const [isUpdatingTestAccount, setIsUpdatingTestAccount] = useState(false);
-  const [signalsFeedDate, setSignalsFeedDate] = useState(new Date().toLocaleDateString('en-CA'));
-  const [signalsFeedMarket, setSignalsFeedMarket] = useState('ob');
-  const [signalsFeedAssets, setSignalsFeedAssets] = useState([]);
-  const [signalsFeedAsset, setSignalsFeedAsset] = useState('');
-  const [signalsFeedAssetInput, setSignalsFeedAssetInput] = useState('');
-  const [signalsFeedText, setSignalsFeedText] = useState('');
-  const [isSignalsFeedLoading, setIsSignalsFeedLoading] = useState(false);
-  const [isSignalsFeedSaving, setIsSignalsFeedSaving] = useState(false);
-  const [isGrantingSignalsAccess, setIsGrantingSignalsAccess] = useState(false);
 
   const loadOverview = async () => {
     return getAdminOverview();
@@ -183,68 +163,13 @@ export function useAdminState(isAdmin, showToast, t) {
     let mounted = true;
 
     if (!isAdmin) {
-      setSignalsFeedText('');
-      setSignalsFeedAssets([]);
-      setSignalsFeedAsset('');
-      setSignalsFeedAssetInput('');
-      setIsSignalsFeedLoading(false);
       return undefined;
     }
-
-    setIsSignalsFeedLoading(true);
-
-    listAdminDailySignalFeeds(signalsFeedDate, signalsFeedMarket)
-      .then((feeds) => {
-        if (!mounted) return;
-        const items = feeds || [];
-        setSignalsFeedAssets(items);
-        const nextAsset = items.find((item) => item.asset === signalsFeedAsset)?.asset || items[0]?.asset || '';
-        setSignalsFeedAsset(nextAsset);
-        setSignalsFeedAssetInput(nextAsset);
-      })
-      .catch(() => {
-        if (!mounted) return;
-        setSignalsFeedText('');
-        setSignalsFeedAssets([]);
-        setSignalsFeedAsset('');
-        setSignalsFeedAssetInput('');
-        showToastRef.current(errorMessageRef.current);
-      });
 
     return () => {
       mounted = false;
     };
-  }, [isAdmin, signalsFeedDate, signalsFeedMarket]);
-
-  useEffect(() => {
-    let mounted = true;
-    if (!isAdmin || !signalsFeedAsset) {
-      setSignalsFeedText('');
-      setIsSignalsFeedLoading(false);
-      return undefined;
-    }
-
-    setIsSignalsFeedLoading(true);
-
-    getAdminDailySignalFeed(signalsFeedDate, signalsFeedMarket, signalsFeedAsset)
-      .then((data) => {
-        if (!mounted) return;
-        setSignalsFeedText(data.rawText || '');
-      })
-      .catch(() => {
-        if (!mounted) return;
-        setSignalsFeedText('');
-        showToastRef.current(errorMessageRef.current);
-      })
-      .finally(() => {
-        if (!mounted) return;
-        setIsSignalsFeedLoading(false);
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, [isAdmin, signalsFeedDate, signalsFeedMarket, signalsFeedAsset]);
+  }, [isAdmin]);
 
   useEffect(() => {
     let mounted = true;
@@ -288,12 +213,6 @@ export function useAdminState(isAdmin, showToast, t) {
       case 'copy_trading_package':
         acc.copy += 1;
         break;
-      case 'automator_lists_package':
-        acc.automatorLists += 1;
-        break;
-      case 'full_access_package':
-        acc.full += 1;
-        break;
       default:
         acc.none += 1;
         break;
@@ -304,8 +223,6 @@ export function useAdminState(isAdmin, showToast, t) {
     baseActive: 0,
     baseInactive: 0,
     copy: 0,
-    automatorLists: 0,
-    full: 0,
     none: 0
   });
   const userPageState = buildPageState(filteredUsers.length, 6, userPage);
@@ -495,153 +412,6 @@ export function useAdminState(isAdmin, showToast, t) {
     }
   };
 
-  const saveSignalsFeed = async () => {
-    setIsSignalsFeedSaving(true);
-    try {
-      const assetValue = signalsFeedAssetInput || signalsFeedAsset;
-      await saveAdminDailySignalFeed(signalsFeedDate, signalsFeedMarket, assetValue, signalsFeedText, 'Publicado pelo painel admin');
-      const feeds = await listAdminDailySignalFeeds(signalsFeedDate, signalsFeedMarket);
-      setSignalsFeedAssets(feeds || []);
-      if (assetValue) {
-        setSignalsFeedAsset(String(assetValue).trim().toUpperCase());
-        setSignalsFeedAssetInput(String(assetValue).trim().toUpperCase());
-      }
-      showToastRef.current('Lista diária publicada com sucesso.');
-      return true;
-    } catch (error) {
-      showToastRef.current(error?.message || t.supabaseSaveError);
-      return false;
-    } finally {
-      setIsSignalsFeedSaving(false);
-    }
-  };
-
-  const grantDailyListAccess = async (days) => {
-    if (!selectedWorkspaceId) return false;
-    setIsGrantingSignalsAccess(true);
-    try {
-      await adminGrantSignalsEntitlement(selectedWorkspaceId, days, `Liberado via admin por ${days} dias`);
-      const [nextOverview, details] = await Promise.all([
-        loadOverview(),
-        loadWorkspaceDetails(selectedWorkspaceId)
-      ]);
-      setOverview(nextOverview);
-      setWorkspaceDetails(details);
-      showToastRef.current(`Acesso ao produto Sinais Diários OB liberado por ${days} dias.`);
-      return true;
-    } catch {
-      showToastRef.current(t.supabaseSaveError);
-      return false;
-    } finally {
-      setIsGrantingSignalsAccess(false);
-    }
-  };
-
-  const revokeDailyListAccess = async () => {
-    if (!selectedWorkspaceId) return false;
-    setIsGrantingSignalsAccess(true);
-    try {
-      await adminRevokeSignalsEntitlement(selectedWorkspaceId, 'Revogado via painel admin');
-      const [nextOverview, details] = await Promise.all([
-        loadOverview(),
-        loadWorkspaceDetails(selectedWorkspaceId)
-      ]);
-      setOverview(nextOverview);
-      setWorkspaceDetails(details);
-      showToastRef.current('Acesso ao produto Sinais Diários OB revogado.');
-      return true;
-    } catch {
-      showToastRef.current(t.supabaseSaveError);
-      return false;
-    } finally {
-      setIsGrantingSignalsAccess(false);
-    }
-  };
-
-  const grantAutomatorAccess = async (days) => {
-    if (!selectedWorkspaceId) return false;
-    setIsGrantingSignalsAccess(true);
-    try {
-      await adminGrantAutomatorEntitlement(selectedWorkspaceId, days, `Liberado via admin por ${days} dias`);
-      const [nextOverview, details] = await Promise.all([
-        loadOverview(),
-        loadWorkspaceDetails(selectedWorkspaceId)
-      ]);
-      setOverview(nextOverview);
-      setWorkspaceDetails(details);
-      showToastRef.current(`Acesso ao produto AutoTrader (Lista) liberado por ${days} dias.`);
-      return true;
-    } catch {
-      showToastRef.current(t.supabaseSaveError);
-      return false;
-    } finally {
-      setIsGrantingSignalsAccess(false);
-    }
-  };
-
-  const revokeAutomatorAccess = async () => {
-    if (!selectedWorkspaceId) return false;
-    setIsGrantingSignalsAccess(true);
-    try {
-      await adminRevokeAutomatorEntitlement(selectedWorkspaceId, 'Revogado via painel admin');
-      const [nextOverview, details] = await Promise.all([
-        loadOverview(),
-        loadWorkspaceDetails(selectedWorkspaceId)
-      ]);
-      setOverview(nextOverview);
-      setWorkspaceDetails(details);
-      showToastRef.current('Acesso ao produto AutoTrader (Lista) revogado.');
-      return true;
-    } catch {
-      showToastRef.current(t.supabaseSaveError);
-      return false;
-    } finally {
-      setIsGrantingSignalsAccess(false);
-    }
-  };
-
-  const grantSignalsBundleAccess = async (days) => {
-    if (!selectedWorkspaceId) return false;
-    setIsGrantingSignalsAccess(true);
-    try {
-      await adminGrantSignalsBundleEntitlement(selectedWorkspaceId, days, `Liberado via admin por ${days} dias`);
-      const [nextOverview, details] = await Promise.all([
-        loadOverview(),
-        loadWorkspaceDetails(selectedWorkspaceId)
-      ]);
-      setOverview(nextOverview);
-      setWorkspaceDetails(details);
-      showToastRef.current(`AutoTrader (Lista) + Sinais Diários OB liberados por ${days} dias.`);
-      return true;
-    } catch {
-      showToastRef.current(t.supabaseSaveError);
-      return false;
-    } finally {
-      setIsGrantingSignalsAccess(false);
-    }
-  };
-
-  const revokeSignalsBundleAccess = async () => {
-    if (!selectedWorkspaceId) return false;
-    setIsGrantingSignalsAccess(true);
-    try {
-      await adminRevokeSignalsBundleEntitlement(selectedWorkspaceId, 'Revogado via painel admin');
-      const [nextOverview, details] = await Promise.all([
-        loadOverview(),
-        loadWorkspaceDetails(selectedWorkspaceId)
-      ]);
-      setOverview(nextOverview);
-      setWorkspaceDetails(details);
-      showToastRef.current('AutoTrader (Lista) + Sinais Diários OB revogados.');
-      return true;
-    } catch {
-      showToastRef.current(t.supabaseSaveError);
-      return false;
-    } finally {
-      setIsGrantingSignalsAccess(false);
-    }
-  };
-
   return {
     summary: overview?.summary || EMPTY_OVERVIEW.summary,
     users: filteredUsers.slice(userPageState.start, userPageState.end),
@@ -664,21 +434,12 @@ export function useAdminState(isAdmin, showToast, t) {
     selectedWaiverUser,
     selectedChargeUser,
     chargePreview,
-    signalsFeedDate,
-    signalsFeedMarket,
-    signalsFeedAssets,
-    signalsFeedAsset,
-    signalsFeedAssetInput,
-    signalsFeedText,
     isAdminLoading,
     isWorkspaceDetailsLoading,
     isGrantingWaiver,
     isChargePreviewLoading,
     isChargingMembership,
     isUpdatingTestAccount,
-    isSignalsFeedLoading,
-    isSignalsFeedSaving,
-    isGrantingSignalsAccess,
     openWorkspaceDetails,
     closeWorkspaceDetails,
     openWaiverModal,
@@ -687,19 +448,6 @@ export function useAdminState(isAdmin, showToast, t) {
     closeChargeModal,
     confirmMonthlyWaiver,
     confirmMonthlyCharge,
-    toggleTestAccount,
-    setSignalsFeedDate,
-    setSignalsFeedMarket,
-    setSignalsFeedAssets,
-    setSignalsFeedAsset,
-    setSignalsFeedAssetInput,
-    setSignalsFeedText,
-    saveSignalsFeed,
-    grantDailyListAccess,
-    revokeDailyListAccess,
-    grantAutomatorAccess,
-    revokeAutomatorAccess,
-    grantSignalsBundleAccess,
-    revokeSignalsBundleAccess
+    toggleTestAccount
   };
 }

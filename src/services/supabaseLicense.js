@@ -1,5 +1,7 @@
 import { supabase, supabaseEnabled } from '../lib/supabase/client';
 
+const MEMBERSHIP_GRACE_DAYS = 3;
+
 function assertSupabase() {
   if (!supabaseEnabled || !supabase) {
     throw new Error('Supabase is not configured.');
@@ -8,7 +10,8 @@ function assertSupabase() {
 
 function getRemainingDays(expiresAt) {
   if (!expiresAt) return 0;
-  const diffMs = new Date(expiresAt).getTime() - Date.now();
+  const base = new Date(expiresAt).getTime();
+  const diffMs = base + MEMBERSHIP_GRACE_DAYS * 24 * 60 * 60 * 1000 - Date.now();
   if (diffMs <= 0) return 0;
   return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 }
@@ -16,7 +19,7 @@ function getRemainingDays(expiresAt) {
 function resolveLicenseStatus(row) {
   if (!row?.expires_at) return 'expired';
   if (getRemainingDays(row.expires_at) <= 0) return 'expired';
-  return row.status || 'trial';
+  return row.status || 'active';
 }
 
 function formatUsd(value) {
