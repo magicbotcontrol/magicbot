@@ -51,17 +51,36 @@ export function CopyTab({
   isAdmin,
   setActiveTab
 }) {
-  const registrationUrl = buildUrl('https://controlcopyiq.com/c/MAGICBOT', {
-    source: 'magiccopybot',
-    promo: (promoCode || '').trim().toUpperCase() || null
-  });
-  const portalUrl = buildUrl('https://controlcopyiq.com/', {
-    source: 'magiccopybot'
-  });
+  const officialRegisterUrl = 'https://iqoption.net/lp/mobile-partner-pwa/?aff=417345&aff_model=revenue';
+  const officialCopyTradingUrl = 'https://iqoption.com/pwa/copy-trading/user/178572482?aff=417345';
 
   const handleOpen = (url) => {
     if (typeof window === 'undefined') return;
     window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleCopyLink = async (url) => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(String(url || ''));
+        showToast?.(t?.copiedToClipboard || 'Copiado!');
+        return;
+      }
+      if (typeof document !== 'undefined') {
+        const textarea = document.createElement('textarea');
+        textarea.value = String(url || '');
+        textarea.setAttribute('readonly', 'true');
+        textarea.style.position = 'absolute';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showToast?.(t?.copiedToClipboard || 'Copiado!');
+      }
+    } catch {
+      showToast?.('Nao foi possivel copiar o link.');
+    }
   };
 
   const [activeVideoTab, setActiveVideoTab] = useState('pre_access');
@@ -265,7 +284,7 @@ export function CopyTab({
             <button
               type="button"
               onClick={() => {
-                handleOpen(registrationUrl);
+                handleOpen(officialRegisterUrl);
                 showToast(t.copyCtaToast);
               }}
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#FF6B00] px-4 py-3 text-xs font-bold text-white shadow-lg shadow-[#FF6B00]/20 transition-colors hover:bg-[#FF7F1F]"
@@ -275,7 +294,7 @@ export function CopyTab({
             </button>
             <button
               type="button"
-              onClick={() => handleOpen(portalUrl)}
+              onClick={() => handleOpen(officialCopyTradingUrl)}
               className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-50 dark:border-[#334155] dark:bg-[#0B1220] dark:text-[#E2E8F0] dark:hover:bg-[#0F172A]"
             >
               <Icons.Globe />
@@ -366,29 +385,73 @@ export function CopyTab({
             </div>
 
             <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-[#334155] dark:bg-[#0B1220]">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">{t.copyLinkRegisterLabel}</p>
-              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <span className="break-all text-xs font-mono text-gray-700 dark:text-[#CBD5E1]">{registrationUrl}</span>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#165DFF] text-[11px] font-black text-white">1</span>
+                  <p className="text-sm font-bold text-gray-900 dark:text-white">Link Oficial de Cadastro</p>
+                </div>
+                <span className="inline-flex items-center rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.16em] text-orange-700 dark:border-[#7C2D12] dark:bg-[#3A1E12] dark:text-[#FDBA74]">
+                  {t.copyLinkRegisterLabel}
+                </span>
+              </div>
+              <div className="mt-3">
+                <input
+                  readOnly
+                  value={officialRegisterUrl}
+                  onFocus={(e) => e.target.select()}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-mono text-gray-800 outline-none dark:border-[#334155] dark:bg-[#0B1220] dark:text-[#E2E8F0]"
+                />
+              </div>
+              <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => handleOpen(registrationUrl)}
-                  className="rounded-xl bg-[#FFF7F0] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-[#B45309] transition-colors hover:bg-[#FFE6D2] dark:bg-[#3A1E12] dark:text-[#FDBA74] dark:hover:bg-[#4A2514]"
+                  onClick={() => handleCopyLink(officialRegisterUrl)}
+                  className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
                 >
-                  {t.copyOpenLink}
+                  <Icons.CopyText /> Copiar Link
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleOpen(officialRegisterUrl)}
+                  className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-50 dark:border-[#334155] dark:bg-[#0B1220] dark:text-[#E2E8F0] dark:hover:bg-[#0F172A]"
+                >
+                  <Icons.Globe />
                 </button>
               </div>
             </div>
 
             <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-[#334155] dark:bg-[#0B1220]">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">{t.copyLinkPortalLabel}</p>
-              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <span className="break-all text-xs font-mono text-gray-700 dark:text-[#CBD5E1]">{portalUrl}</span>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#165DFF] text-[11px] font-black text-white">2</span>
+                  <p className="text-sm font-bold text-gray-900 dark:text-white">Link Oficial do Copy Trading</p>
+                </div>
+                <span className="inline-flex items-center rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.16em] text-orange-700 dark:border-[#7C2D12] dark:bg-[#3A1E12] dark:text-[#FDBA74]">
+                  {t.copyLinkPortalLabel}
+                </span>
+              </div>
+              <div className="mt-3">
+                <input
+                  readOnly
+                  value={officialCopyTradingUrl}
+                  onFocus={(e) => e.target.select()}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-mono text-gray-800 outline-none dark:border-[#334155] dark:bg-[#0B1220] dark:text-[#E2E8F0]"
+                />
+              </div>
+              <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => handleOpen(portalUrl)}
-                  className="rounded-xl bg-[#FFF7F0] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-[#B45309] transition-colors hover:bg-[#FFE6D2] dark:bg-[#3A1E12] dark:text-[#FDBA74] dark:hover:bg-[#4A2514]"
+                  onClick={() => handleCopyLink(officialCopyTradingUrl)}
+                  className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
                 >
-                  {t.copyOpenLink}
+                  <Icons.CopyText /> Copiar Link
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleOpen(officialCopyTradingUrl)}
+                  className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-50 dark:border-[#334155] dark:bg-[#0B1220] dark:text-[#E2E8F0] dark:hover:bg-[#0F172A]"
+                >
+                  <Icons.Globe />
                 </button>
               </div>
             </div>

@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { ScrollableTableShell } from '../ScrollableTableShell';
 import { Icons } from '../../constants/icons';
 import { AdminWorkspaceDetailsModal } from '../modals/AdminWorkspaceDetailsModal';
 import { AdminChargeMembershipModal } from '../modals/AdminChargeMembershipModal';
 import { AdminGrantWaiverModal } from '../modals/AdminGrantWaiverModal';
 import { AdminCopyTradingCampaigns } from '../admin/AdminCopyTradingCampaigns';
+import { AdminFunnelPanel } from '../admin/AdminFunnelPanel';
 
 function formatDate(value) {
   if (!value) return '-';
@@ -141,6 +143,7 @@ export function AdminTab({
   confirmMonthlyCharge,
   toggleTestAccount
 }) {
+  const [adminSection, setAdminSection] = useState('overview');
   const quickCounters = [
     { label: 'Base ativa', value: workspacePackageCounters?.baseActive || 0, tone: 'emerald' },
     { label: 'Base inativa', value: workspacePackageCounters?.baseInactive || 0, tone: 'slate' },
@@ -171,9 +174,28 @@ export function AdminTab({
             {t.adminReadOnly}
           </div>
         </div>
+
+        <div className="mt-6 inline-flex rounded-2xl border border-gray-200 bg-gray-50 p-1 dark:border-[#334155] dark:bg-[#0B1220]">
+          <button
+            type="button"
+            onClick={() => setAdminSection('overview')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${adminSection === 'overview' ? 'bg-[#FF6B00] text-white' : 'text-gray-600 dark:text-gray-400'}`}
+          >
+            Visao Geral
+          </button>
+          <button
+            type="button"
+            onClick={() => setAdminSection('funnel')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${adminSection === 'funnel' ? 'bg-[#FF6B00] text-white' : 'text-gray-600 dark:text-gray-400'}`}
+          >
+            Gerenciar Funil
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
+      {adminSection === 'overview' ? (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
         <div className="bg-white dark:bg-[#1E293B] rounded-xl p-4 border border-gray-200 dark:border-[#334155] shadow-sm">
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">{t.adminUsers}</p>
           <p className="mt-2 text-2xl font-black text-gray-900 dark:text-white">{summary.usersCount}</p>
@@ -486,6 +508,10 @@ export function AdminTab({
           t={t}
         />
       </section>
+        </div>
+      ) : (
+        <AdminFunnelPanel t={t} showToast={showToast} />
+      )}
 
       <AdminWorkspaceDetailsModal
         isOpen={Boolean(selectedWorkspaceId)}

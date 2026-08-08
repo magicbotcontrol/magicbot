@@ -144,6 +144,8 @@ export default function App() {
             formatMoney={ui.formatMoney}
             dashboard={dashboard.metrics}
             isDashboardLoading={dashboard.isDashboardLoading}
+            showToast={ui.showToast}
+            isLoggedIn={session.isLoggedIn}
           />
         );
       case 'copy':
