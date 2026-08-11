@@ -282,9 +282,11 @@ export default function App() {
           handleUpdatePassword={session.handleUpdatePassword}
           t={ui.t}
           isAuthLoading={session.isAuthLoading}
+          isRecoverySessionReady={Boolean(session.session?.user)}
           authFeedback={session.authFeedback}
           clearAuthFeedback={session.clearAuthFeedback}
           onBackToLogin={() => navigateToAuthView('login')}
+          onGoToForgotPassword={() => navigateToAuthView('forgot-password')}
         />
       </>
     );
