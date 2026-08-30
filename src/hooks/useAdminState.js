@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { getAdminOverview, getAdminWorkspaceDetails, updateAdminProfileTestAccount } from '../services/supabaseAdmin';
-import { adminChargeUserMonthlyMembership, grantUserMonthlyWaiver } from '../services/supabaseLicense';
+import { adminChargeUserMonthlyMembership, grantUserMonthlyWaiver, adminReactivateUserDays } from '../services/supabaseLicense';
 import { DEFAULT_MONTHLY_AMOUNT, resolveHighestBankroll, resolveMonthlyTier } from '../utils/monthlyPricing';
 
 const EMPTY_OVERVIEW = {
@@ -111,10 +111,12 @@ export function useAdminState(isAdmin, showToast, t) {
   const [selectedWaiverUser, setSelectedWaiverUser] = useState(null);
   const [selectedChargeUser, setSelectedChargeUser] = useState(null);
   const [chargePreview, setChargePreview] = useState(null);
+  const [selectedReactivateUser, setSelectedReactivateUser] = useState(null);
   const [isGrantingWaiver, setIsGrantingWaiver] = useState(false);
   const [isChargePreviewLoading, setIsChargePreviewLoading] = useState(false);
   const [isChargingMembership, setIsChargingMembership] = useState(false);
   const [isUpdatingTestAccount, setIsUpdatingTestAccount] = useState(false);
+  const [isReactivating, setIsReactivating] = useState(false);
 
   const loadOverview = async () => {
     return getAdminOverview();
@@ -329,6 +331,15 @@ export function useAdminState(isAdmin, showToast, t) {
     setIsChargePreviewLoading(false);
   };
 
+  const openReactivateModal = (user) => {
+    setSelectedReactivateUser(user);
+  };
+
+  const closeReactivateModal = () => {
+    if (isReactivating) return;
+    setSelectedReactivateUser(null);
+  };
+
   const confirmMonthlyWaiver = async (note) => {
     if (!selectedWaiverUser) return false;
 
@@ -412,6 +423,32 @@ export function useAdminState(isAdmin, showToast, t) {
     }
   };
 
+  const confirmReactivate = async (days, note) => {
+    if (!selectedReactivateUser) return false;
+
+    setIsReactivating(true);
+
+    try {
+      const result = await adminReactivateUserDays(selectedReactivateUser.id, days, note);
+      const nextOverview = await loadOverview();
+      setOverview(nextOverview);
+
+      if (selectedWorkspaceId === result.workspace_id) {
+        const details = await loadWorkspaceDetails(result.workspace_id);
+        setWorkspaceDetails(details);
+      }
+
+      showToastRef.current(t.adminReactivateGranted.replace('{days}', days));
+      setSelectedReactivateUser(null);
+      return true;
+    } catch (error) {
+      showToastRef.current(error?.message || t.supabaseSaveError);
+      return false;
+    } finally {
+      setIsReactivating(false);
+    }
+  };
+
   return {
     summary: overview?.summary || EMPTY_OVERVIEW.summary,
     users: filteredUsers.slice(userPageState.start, userPageState.end),
@@ -433,6 +470,7 @@ export function useAdminState(isAdmin, showToast, t) {
     workspaceDetails,
     selectedWaiverUser,
     selectedChargeUser,
+    selectedReactivateUser,
     chargePreview,
     isAdminLoading,
     isWorkspaceDetailsLoading,
@@ -440,14 +478,18 @@ export function useAdminState(isAdmin, showToast, t) {
     isChargePreviewLoading,
     isChargingMembership,
     isUpdatingTestAccount,
+    isReactivating,
     openWorkspaceDetails,
     closeWorkspaceDetails,
     openWaiverModal,
     closeWaiverModal,
     openChargeModal,
     closeChargeModal,
+    openReactivateModal,
+    closeReactivateModal,
     confirmMonthlyWaiver,
     confirmMonthlyCharge,
+    confirmReactivate,
     toggleTestAccount
   };
 }

@@ -226,6 +226,7 @@ export default function App() {
             workspaceDetails={admin.workspaceDetails}
             selectedWaiverUser={admin.selectedWaiverUser}
             selectedChargeUser={admin.selectedChargeUser}
+            selectedReactivateUser={admin.selectedReactivateUser}
             chargePreview={admin.chargePreview}
             isAdminLoading={admin.isAdminLoading}
             isWorkspaceDetailsLoading={admin.isWorkspaceDetailsLoading}
@@ -233,14 +234,18 @@ export default function App() {
             isChargePreviewLoading={admin.isChargePreviewLoading}
             isChargingMembership={admin.isChargingMembership}
             isUpdatingTestAccount={admin.isUpdatingTestAccount}
+            isReactivating={admin.isReactivating}
             openWorkspaceDetails={admin.openWorkspaceDetails}
             closeWorkspaceDetails={admin.closeWorkspaceDetails}
             openWaiverModal={admin.openWaiverModal}
             closeWaiverModal={admin.closeWaiverModal}
             openChargeModal={admin.openChargeModal}
             closeChargeModal={admin.closeChargeModal}
+            openReactivateModal={admin.openReactivateModal}
+            closeReactivateModal={admin.closeReactivateModal}
             confirmMonthlyWaiver={admin.confirmMonthlyWaiver}
             confirmMonthlyCharge={admin.confirmMonthlyCharge}
+            confirmReactivate={admin.confirmReactivate}
             toggleTestAccount={admin.toggleTestAccount}
           />
         );

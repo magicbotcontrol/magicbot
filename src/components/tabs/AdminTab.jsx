@@ -4,6 +4,7 @@ import { Icons } from '../../constants/icons';
 import { AdminWorkspaceDetailsModal } from '../modals/AdminWorkspaceDetailsModal';
 import { AdminChargeMembershipModal } from '../modals/AdminChargeMembershipModal';
 import { AdminGrantWaiverModal } from '../modals/AdminGrantWaiverModal';
+import { AdminReactivateModal } from '../modals/AdminReactivateModal';
 import { AdminCopyTradingCampaigns } from '../admin/AdminCopyTradingCampaigns';
 import { AdminFunnelPanel } from '../admin/AdminFunnelPanel';
 
@@ -126,6 +127,7 @@ export function AdminTab({
   workspaceDetails,
   selectedWaiverUser,
   selectedChargeUser,
+  selectedReactivateUser,
   chargePreview,
   isAdminLoading,
   isWorkspaceDetailsLoading,
@@ -133,14 +135,18 @@ export function AdminTab({
   isChargePreviewLoading,
   isChargingMembership,
   isUpdatingTestAccount,
+  isReactivating,
   openWorkspaceDetails,
   closeWorkspaceDetails,
   openWaiverModal,
   closeWaiverModal,
   openChargeModal,
   closeChargeModal,
+  openReactivateModal,
+  closeReactivateModal,
   confirmMonthlyWaiver,
   confirmMonthlyCharge,
+  confirmReactivate,
   toggleTestAccount
 }) {
   const [adminSection, setAdminSection] = useState('overview');
@@ -377,6 +383,13 @@ export function AdminTab({
                         </button>
                         <button
                           type="button"
+                          onClick={() => openReactivateModal(user)}
+                          className="rounded-xl bg-emerald-600 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {t.adminReactivateAction}
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => openChargeModal(user)}
                           disabled={Boolean(isChargePreviewLoading) && selectedChargeUser?.id === user.id}
                           className="rounded-xl bg-[#FF6B00] px-3 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-[#FF7F1F] disabled:cursor-not-allowed disabled:opacity-40"
@@ -538,6 +551,15 @@ export function AdminTab({
         isSubmitting={isChargingMembership}
         onClose={closeChargeModal}
         onConfirm={confirmMonthlyCharge}
+        t={t}
+      />
+
+      <AdminReactivateModal
+        isOpen={Boolean(selectedReactivateUser)}
+        user={selectedReactivateUser}
+        isSubmitting={isReactivating}
+        onClose={closeReactivateModal}
+        onConfirm={confirmReactivate}
         t={t}
       />
     </div>

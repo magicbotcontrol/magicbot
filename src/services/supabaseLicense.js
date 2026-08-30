@@ -241,3 +241,22 @@ export async function grantUserMonthlyWaiver(ownerUserId, note) {
   if (result.error) throw result.error;
   return result.data;
 }
+
+export async function adminReactivateUserDays(ownerUserId, days, note) {
+  assertSupabase();
+
+  const validDays = [3, 7, 15, 30];
+  const normalizedDays = Number(days);
+  if (!validDays.includes(normalizedDays)) {
+    throw new Error('Dias permitidos: 3, 7, 15 ou 30.');
+  }
+
+  const result = await supabase.rpc('grant_user_reactivation_days', {
+    p_owner_user_id: ownerUserId,
+    p_days: normalizedDays,
+    p_note: note || `Reativacao administrativa por ${normalizedDays} dias liberada pelo admin`
+  });
+
+  if (result.error) throw result.error;
+  return result.data;
+}
