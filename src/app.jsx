@@ -15,6 +15,7 @@ import { AffiliatesTab } from './components/tabs/AffiliatesTab';
 import { CopyTab } from './components/tabs/CopyTab';
 import { DashboardTab } from './components/tabs/DashboardTab';
 import { ShopTab } from './components/tabs/ShopTab';
+import { SignalsTab } from './components/tabs/SignalsTab';
 import { Icons } from './constants/icons';
 import { globalStyles } from './constants/globalStyles';
 import { useBrokerState } from './hooks/useBrokerState';
@@ -27,6 +28,8 @@ import { useSessionState } from './hooks/useSessionState';
 import { useSettingsState } from './hooks/useSettingsState';
 import { useSupabaseWorkspace } from './hooks/useSupabaseWorkspace';
 import { useUiState } from './hooks/useUiState';
+import { useCommercialState } from './hooks/useCommercialState';
+import { applyCommercialOverview } from './constants/commercialModel';
 import { playAlertSound } from './utils/audio';
 
 export default function App() {
@@ -36,6 +39,7 @@ export default function App() {
   const [entitlementsReloadToken, setEntitlementsReloadToken] = useState(0);
   const admin = useAdminState(session.isAdmin, ui.showToast, ui.t);
   const affiliates = useAffiliatesState(session.isLoggedIn, ui.showToast, ui.t);
+  const commercial = useCommercialState(session.isLoggedIn, ui.showToast);
   const workspace = useSupabaseWorkspace(session.isLoggedIn, ui.showToast, ui.t);
   const dashboard = useDashboardState(workspace.workspaceId, session.isLoggedIn, ui.showToast, ui.t);
   const license = useLicenseState(
@@ -72,7 +76,13 @@ export default function App() {
   const hasMembershipActive = session.isAdmin || license.isMembershipActive;
   const hasCopyAccess = session.isAdmin || (hasMembershipActive && copyEntitlement.isCopyTradingActive);
 
-  const visibleTabs = session.isAdmin ? null : ['dashboard', 'account', 'copy', 'shop', 'affiliates'];
+  const visibleTabs = session.isAdmin ? null : ['dashboard', 'account', 'copy', 'signals', 'shop', 'affiliates'];
+  const affiliateView = applyCommercialOverview({
+    summary: affiliates.affiliateSummary,
+    network: affiliates.affiliateNetwork,
+    matrix: affiliates.affiliateMatrix
+  }, commercial.commercialConfig);
+  const openSignals = commercial.signals.filter((item) => item.status === 'open').length;
 
   useEffect(() => {
     if (session.isAdmin) return;
@@ -146,6 +156,12 @@ export default function App() {
             isDashboardLoading={dashboard.isDashboardLoading}
             showToast={ui.showToast}
             isLoggedIn={session.isLoggedIn}
+            commercialConfig={commercial.commercialConfig}
+            bankrollUsd={monthlyBankrollUsd}
+            commissionEstimate={affiliateView.summary.totalEstimatedAmount}
+            openSignals={openSignals}
+            networkDepth={affiliateView.summary.maxDepthReached}
+            onOpenTab={ui.setActiveTab}
           />
         );
       case 'copy':
@@ -171,9 +187,9 @@ export default function App() {
             formatMoney={ui.formatMoney}
             username={session.username}
             referralCode={session.referralCode}
-            summary={affiliates.affiliateSummary}
-            network={affiliates.affiliateNetwork}
-            matrix={affiliates.affiliateMatrix}
+            summary={affiliateView.summary}
+            network={affiliateView.network}
+            matrix={affiliateView.matrix}
             isLoading={affiliates.isAffiliatesLoading}
           />
         );
@@ -247,6 +263,12 @@ export default function App() {
             confirmMonthlyCharge={admin.confirmMonthlyCharge}
             confirmReactivate={admin.confirmReactivate}
             toggleTestAccount={admin.toggleTestAccount}
+            commercialConfig={commercial.commercialConfig}
+            signals={commercial.signals}
+            formatMoney={ui.formatMoney}
+            onSaveCommercialConfig={commercial.updateCommercialConfig}
+            onPublishSignal={commercial.publishSignal}
+            onDeleteSignal={commercial.deleteSignal}
           />
         );
       case 'shop':
@@ -259,6 +281,23 @@ export default function App() {
             membershipExpirationDate={license.expirationDate}
             monthlyBankrollUsd={monthlyBankrollUsd}
             hasCopyAccess={hasCopyAccess}
+            commercialConfig={commercial.commercialConfig}
+          />
+        );
+      case 'signals':
+        return (
+          <SignalsTab
+            signals={commercial.signals}
+            signalPlans={commercial.commercialConfig.signalPlans}
+            formatMoney={ui.formatMoney}
+            isMembershipActive={hasMembershipActive}
+            onBuyPlan={(plan) => {
+              if (!Number(plan.amountUsd)) {
+                ui.showToast('Defina o valor deste plano de sinais em Regras comerciais.');
+                return;
+              }
+              ui.showToast('Plano de sinais separado da mensalidade. A cobranca propria entra na integracao de pagamento.');
+            }}
           />
         );
       default:
@@ -399,7 +438,8 @@ export default function App() {
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-[#1E293B] border-t border-gray-200 dark:border-[#334155] h-16 flex justify-around items-center z-40 px-2 pb-safe overflow-visible">
         <MobileNavItem icon={Icons.Dashboard} label="Dash" active={ui.activeTab === 'dashboard'} onClick={() => ui.setActiveTab('dashboard')} />
         <MobileNavItem icon={Icons.User} label="Conta" active={ui.activeTab === 'account'} onClick={() => ui.setActiveTab('account')} />
-        <MobileNavItem prominent icon={Icons.Copy} label="Copy" active={ui.activeTab === 'copy'} onClick={() => ui.setActiveTab('copy')} />
+        <MobileNavItem prominent icon={Icons.Copy} label="BOT" active={ui.activeTab === 'copy'} onClick={() => ui.setActiveTab('copy')} />
+        <MobileNavItem icon={Icons.Signals} label="Sinais" active={ui.activeTab === 'signals'} onClick={() => ui.setActiveTab('signals')} />
         <MobileNavItem icon={Icons.ShoppingBag} label="Loja" active={ui.activeTab === 'shop'} onClick={() => ui.setActiveTab('shop')} />
         <MobileNavItem icon={Icons.Users} label="Afiliado" active={ui.activeTab === 'affiliates'} onClick={() => ui.setActiveTab('affiliates')} />
       </div>

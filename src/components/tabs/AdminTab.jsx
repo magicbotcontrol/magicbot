@@ -7,6 +7,7 @@ import { AdminGrantWaiverModal } from '../modals/AdminGrantWaiverModal';
 import { AdminReactivateModal } from '../modals/AdminReactivateModal';
 import { AdminCopyTradingCampaigns } from '../admin/AdminCopyTradingCampaigns';
 import { AdminFunnelPanel } from '../admin/AdminFunnelPanel';
+import { AdminCommercialPanel } from '../admin/AdminCommercialPanel';
 
 function formatDate(value) {
   if (!value) return '-';
@@ -147,7 +148,13 @@ export function AdminTab({
   confirmMonthlyWaiver,
   confirmMonthlyCharge,
   confirmReactivate,
-  toggleTestAccount
+  toggleTestAccount,
+  commercialConfig,
+  signals,
+  formatMoney,
+  onSaveCommercialConfig,
+  onPublishSignal,
+  onDeleteSignal
 }) {
   const [adminSection, setAdminSection] = useState('overview');
   const quickCounters = [
@@ -195,6 +202,13 @@ export function AdminTab({
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${adminSection === 'funnel' ? 'bg-[#FF6B00] text-white' : 'text-gray-600 dark:text-gray-400'}`}
           >
             Gerenciar Funil
+          </button>
+          <button
+            type="button"
+            onClick={() => setAdminSection('commercial')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${adminSection === 'commercial' ? 'bg-[#FF6B00] text-white' : 'text-gray-600 dark:text-gray-400'}`}
+          >
+            Regras comerciais
           </button>
         </div>
       </div>
@@ -522,8 +536,18 @@ export function AdminTab({
         />
       </section>
         </div>
-      ) : (
+      ) : adminSection === 'funnel' ? (
         <AdminFunnelPanel t={t} showToast={showToast} />
+      ) : (
+        <AdminCommercialPanel
+          config={commercialConfig}
+          signals={signals}
+          formatMoney={formatMoney}
+          showToast={showToast}
+          onSaveConfig={onSaveCommercialConfig}
+          onPublishSignal={onPublishSignal}
+          onDeleteSignal={onDeleteSignal}
+        />
       )}
 
       <AdminWorkspaceDetailsModal

@@ -61,7 +61,13 @@ export function DashboardTab({
   dashboard,
   isDashboardLoading,
   showToast,
-  isLoggedIn
+  isLoggedIn,
+  commercialConfig,
+  bankrollUsd,
+  commissionEstimate,
+  openSignals,
+  networkDepth,
+  onOpenTab
 }) {
   const [banners, setBanners] = useState([]);
   const [videos, setVideos] = useState([]);
@@ -168,6 +174,29 @@ export function DashboardTab({
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <button type="button" onClick={() => onOpenTab?.('account')} className="rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">Capital</p>
+          <p className="mt-2 text-xl font-black text-gray-900 dark:text-white">{formatMoney(bankrollUsd || 0, 'USD')}</p>
+          <p className="mt-1 text-xs text-gray-500">Minimo recomendado {formatMoney(commercialConfig?.minCapitalUsd || 250, 'USD')}</p>
+        </button>
+        <button type="button" onClick={() => onOpenTab?.('shop')} className="rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">{commercialConfig?.boltName || 'BOT'}</p>
+          <p className="mt-2 text-xl font-black text-gray-900 dark:text-white">{remainingDays > 0 ? 'Mensalidade ativa' : 'Mensalidade pendente'}</p>
+          <p className="mt-1 text-xs text-gray-500">Vence em {expirationDate || '--'} · {formatMoney(commercialConfig?.monthlyUsd || 36, 'USD')}/mes</p>
+        </button>
+        <button type="button" onClick={() => onOpenTab?.('signals')} className="rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">Sinais</p>
+          <p className="mt-2 text-xl font-black text-gray-900 dark:text-white">{openSignals || 0} abertos</p>
+          <p className="mt-1 text-xs text-gray-500">Produto separado da mensalidade</p>
+        </button>
+        <button type="button" onClick={() => onOpenTab?.('affiliates')} className="rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">Comissoes</p>
+          <p className="mt-2 text-xl font-black text-gray-900 dark:text-white">{formatMoney(commissionEstimate || 0, 'USD')}</p>
+          <p className="mt-1 text-xs text-gray-500">Rede ate o nivel {networkDepth || 0}</p>
+        </button>
+      </section>
+      <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">{commercialConfig?.riskDisclaimer}</p>
       {totalBanners > 0 ? (
         <div
           className="relative overflow-hidden rounded-3xl border border-gray-200 bg-white dark:border-[#334155] dark:bg-[#1E293B] shadow-sm"

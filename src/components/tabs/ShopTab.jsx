@@ -1,5 +1,5 @@
 import { Icons } from '../../constants/icons';
-import { DEFAULT_MONTHLY_AMOUNT, MONTHLY_PRICING_TIERS, resolveMonthlyTier } from '../../utils/monthlyPricing';
+import { networkSharePercent } from '../../constants/commercialModel';
 
 function StatusBadge({ active, label }) {
   return (
@@ -78,24 +78,25 @@ export function ShopTab({
   isMembershipActive,
   membershipExpirationDate,
   monthlyBankrollUsd,
-  hasCopyAccess
+  hasCopyAccess,
+  commercialConfig
 }) {
-  const membershipTier = resolveMonthlyTier(monthlyBankrollUsd);
+  const boltName = commercialConfig?.boltName || 'BOT';
+  const monthlyUsd = Number(commercialConfig?.monthlyUsd || 36);
+  const minCapitalUsd = Number(commercialConfig?.minCapitalUsd || 250);
   const hasDetectedBankroll = Number.isFinite(Number(monthlyBankrollUsd)) && Number(monthlyBankrollUsd) > 0;
   const membershipOffer = {
     kind: 'membership',
-    title: 'Mensalidade',
-    description: hasDetectedBankroll
-      ? `Ativa o workspace por 30 dias conforme a faixa da banca detectada. Ela e obrigatoria para qualquer pacote funcionar.`
-      : `Ativa o workspace por 30 dias. Enquanto a banca nao estiver detectada, a faixa inicial de ${formatMoney(DEFAULT_MONTHLY_AMOUNT, 'USD')} sera usada.`,
-    amount: membershipTier.amount,
+    title: `Mensalidade ${boltName}`,
+    description: `A mensalidade libera o acesso principal do ${boltName} por 30 dias. O capital inicial recomendado e de ${formatMoney(minCapitalUsd, 'USD')}.`,
+    amount: monthlyUsd,
     days: 30,
-    planName: `membership-monthly-${membershipTier.id}`,
-    tierId: membershipTier.id,
-    tierLabel: membershipTier.label,
+    planName: 'membership-monthly-bot',
+    tierId: 'bot',
+    tierLabel: boltName,
     bankrollUsd: Number(monthlyBankrollUsd || 0),
     manualOverride: false,
-    successMessage: `Mensalidade ativada com sucesso por 30 dias na faixa ${membershipTier.label}.`
+    successMessage: `Mensalidade ${boltName} ativada por 30 dias.`
   };
 
   const packages = [
@@ -109,7 +110,7 @@ export function ShopTab({
       successMessage: 'Pacote Copy Trading ativado com sucesso.',
       statusLabel: hasCopyAccess ? 'Ativo' : 'Inativo',
       isActive: hasCopyAccess,
-      note: isMembershipActive ? 'Mensalidade validada. Este pacote ja pode liberar o Copy Trading.' : 'Este pacote exige a mensalidade conforme a tabela da banca.',
+      note: isMembershipActive ? `Mensalidade ${boltName} validada. Este modulo operacional pode ser liberado.` : `Este modulo exige a mensalidade ${boltName} de ${formatMoney(monthlyUsd, 'USD')}.`,
       features: [
         'Acesso ao Copy Trading',
         'Entrada objetiva para o modo Copy',
@@ -124,9 +125,9 @@ export function ShopTab({
         <span className="inline-flex items-center rounded-full bg-orange-50 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#FF6B00] dark:bg-orange-950/30 dark:text-[#FF8A3D]">
           Loja de pacotes
         </span>
-        <h2 className="text-2xl font-black text-gray-900 dark:text-white md:text-3xl">Ative sua mensalidade e escolha o pacote</h2>
+        <h2 className="text-2xl font-black text-gray-900 dark:text-white md:text-3xl">BOT e o produto principal</h2>
         <p className="mx-auto max-w-3xl text-sm text-gray-500 dark:text-gray-400">
-          A mensalidade agora segue a faixa da sua banca, com valor inicial de {formatMoney(DEFAULT_MONTHLY_AMOUNT, 'USD')}.
+          Mensalidade fixa de {formatMoney(monthlyUsd, 'USD')}. Capital inicial recomendado de {formatMoney(minCapitalUsd, 'USD')}. {commercialConfig?.riskDisclaimer}
         </p>
       </div>
 
@@ -142,10 +143,9 @@ export function ShopTab({
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               {isMembershipActive ? `Expira em ${membershipExpirationDate || '-'}` : 'Renovação de 30 dias da base do workspace.'}
             </p>
-            <div className="mt-4 rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-xs font-semibold text-orange-700 dark:border-orange-900/40 dark:bg-orange-950/15 dark:text-orange-300">
-              {hasDetectedBankroll
-                ? `Banca detectada: ${formatMoney(monthlyBankrollUsd, 'USD')} -> mensalidade atual ${formatMoney(membershipTier.amount, 'USD')}.`
-                : `Banca ainda nao detectada. A faixa inicial de ${formatMoney(DEFAULT_MONTHLY_AMOUNT, 'USD')} sera usada ate a primeira leitura de saldo.`}
+            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/15 dark:text-amber-300">
+              {commercialConfig?.riskDisclaimer} Capital recomendado: {formatMoney(minCapitalUsd, 'USD')}.
+              {hasDetectedBankroll ? ` Banca informada: ${formatMoney(monthlyBankrollUsd, 'USD')}.` : ' A banca ainda nao foi lida da corretora.'}
             </div>
           </div>
 
@@ -155,9 +155,9 @@ export function ShopTab({
         </div>
 
         <FeatureList items={[
-          `Mensalidade inicial de ${formatMoney(DEFAULT_MONTHLY_AMOUNT, 'USD')}`,
-          'Tabela mensal conforme o valor da banca',
-          'Obrigatoria para o Copy Trading'
+          `Mensalidade ${boltName} de ${formatMoney(monthlyUsd, 'USD')}`,
+          `Entrada recomendada de ${formatMoney(minCapitalUsd, 'USD')}`,
+          `${networkSharePercent(commercialConfig)}% da mensalidade paga segue para a rede em ${commercialConfig?.levels?.length || 4} niveis`
         ]} />
 
         <button
@@ -170,74 +170,23 @@ export function ShopTab({
       </section>
 
       <section className="rounded-[28px] border border-gray-200 bg-white p-7 shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#FF6B00]">Planos mensais</p>
-            <h3 className="mt-2 text-xl font-black text-gray-900 dark:text-white">Escolha o plano de acordo com o valor da sua banca</h3>
-            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-              Mensalidade inicial: {formatMoney(DEFAULT_MONTHLY_AMOUNT, 'USD')}. Sem produtos. Tabela mensal conforme o valor da banca.
-            </p>
-          </div>
-          <div className="rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-xs font-semibold text-orange-700 dark:border-orange-900/40 dark:bg-orange-950/15 dark:text-orange-300">
-            Mais lucro para voce! Automatize. Opere. Escale.
-          </div>
-        </div>
-
-        <div className="mt-6 space-y-3 md:hidden">
-          {MONTHLY_PRICING_TIERS.map((tier) => {
-            const isCurrent = tier.id === membershipTier.id;
-            return (
-              <div
-                key={tier.id}
-                className={`rounded-2xl border px-4 py-4 ${
-                  isCurrent
-                    ? 'border-[#FF6B00] bg-orange-50 dark:bg-orange-950/20'
-                    : 'border-gray-200 bg-gray-50 dark:border-[#334155] dark:bg-[#0B1220]'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-gray-400">Valor da banca</p>
-                    <p className={`mt-1 text-sm font-bold ${isCurrent ? 'text-orange-700 dark:text-orange-300' : 'text-gray-900 dark:text-white'}`}>{tier.label}</p>
-                  </div>
-                  {isCurrent ? (
-                    <span className="rounded-full bg-[#FF6B00] px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-white">
-                      Atual
-                    </span>
-                  ) : null}
-                </div>
-                <div className="mt-3">
-                  <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-gray-400">Valor mensal</p>
-                  <p className={`mt-1 text-2xl font-black ${isCurrent ? 'text-orange-600 dark:text-orange-300' : 'text-gray-900 dark:text-white'}`}>
-                    {formatMoney(tier.amount, 'USD')}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="mt-6 hidden overflow-hidden rounded-3xl border border-gray-200 dark:border-[#334155] md:block">
-          <div className="grid grid-cols-2 bg-gray-50 px-5 py-3 text-[11px] font-extrabold uppercase tracking-[0.16em] text-gray-500 dark:bg-[#0B1220] dark:text-[#94A3B8]">
-            <span>Valor da banca</span>
-            <span>Valor mensal</span>
-          </div>
-          {MONTHLY_PRICING_TIERS.map((tier) => {
-            const isCurrent = tier.id === membershipTier.id;
-            return (
-              <div
-                key={tier.id}
-                className={`grid grid-cols-2 px-5 py-4 text-sm ${
-                  isCurrent
-                    ? 'bg-orange-50 text-orange-700 dark:bg-orange-950/20 dark:text-orange-300'
-                    : 'border-t border-gray-100 text-gray-700 dark:border-[#334155] dark:text-gray-300'
-                }`}
-              >
-                <span className="font-semibold">{tier.label}</span>
-                <span className="font-black">{formatMoney(tier.amount, 'USD')}</span>
-              </div>
-            );
-          })}
+        <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#FF6B00]">Bonificacao da rede</p>
+        <h3 className="mt-2 text-xl font-black text-gray-900 dark:text-white">
+          {networkSharePercent(commercialConfig)}% de cada mensalidade de {formatMoney(monthlyUsd, 'USD')}
+        </h3>
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+          Os 80% restantes, ou o que ficar fora desses niveis, seguem para a operacao da plataforma. Os percentuais podem ser alterados no painel administrativo.
+        </p>
+        <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+          {(commercialConfig?.levels || []).map((level) => (
+            <div key={level.level} className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-[#334155] dark:bg-[#0B1220]">
+              <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-gray-400">Nivel {level.level}</p>
+              <p className="mt-2 text-2xl font-black text-gray-900 dark:text-white">{level.percent}%</p>
+              <p className="mt-1 text-sm font-semibold text-orange-600 dark:text-orange-300">
+                {formatMoney(monthlyUsd * level.percent / 100, 'USD')}
+              </p>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -267,7 +216,7 @@ export function ShopTab({
           <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-[#334155] dark:bg-[#0B1220]">
             <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">Pacote 1</p>
             <p className="mt-2 text-sm font-bold text-gray-900 dark:text-white">Copy Trading</p>
-            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Mensalidade conforme a banca + pacote de {formatMoney(40, 'USD')}.</p>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">A mensalidade {boltName} de {formatMoney(monthlyUsd, 'USD')} e o acesso principal. Este modulo operacional continua separado.</p>
           </div>
         </div>
       </section>

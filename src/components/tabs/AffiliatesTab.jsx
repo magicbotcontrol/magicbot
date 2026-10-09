@@ -136,7 +136,7 @@ function UnilevelLevelCard({ item, t, labels, formatMoney }) {
             {labels.levelWord} {item.level}
           </h3>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            {labels.unilevelLineSubtitle.replace('{percent}', '3%')}
+            {labels.unilevelLineSubtitle.replace('{percent}', item.percent || '0%')}
           </p>
         </div>
         <div className="rounded-2xl bg-orange-50 px-3 py-2 text-right dark:bg-orange-950/20">
@@ -240,11 +240,11 @@ function MatrixRowAccordion({ row, expanded, onToggle, t, labels, formatMoney })
 function buildLabels(t) {
   return {
     affiliateProgram: t.affiliateProgramme || 'Programa de Afiliados',
-    unilevelTitle: t.affiliateUnilevelTitle || 'Unilevel 10 niveis',
+    unilevelTitle: t.affiliateUnilevelTitle || 'Bonificacao em 4 niveis',
     matrixTitle: t.affiliateMatrixTitle || 'Matriz 3x10',
-    hybridTitle: t.affiliateHybridTitle || 'Ganhos recorrentes da rede',
-    hybridSubtitle: t.affiliateHybridSubtitle || 'Acompanhe o unilevel de 10 niveis e a matriz fixa 3x10 com bonus de 3% por usuario elegivel.',
-    unilevelDescription: t.affiliateUnilevelDescription || 'Do 1 ao 10 nivel, cada usuario ativo abaixo da sua rede gera 3% sobre a mensalidade.',
+    hybridTitle: t.affiliateHybridTitle || 'Rede do BOT',
+    hybridSubtitle: t.affiliateHybridSubtitle || 'A bonificacao usa a mensalidade efetivamente vigente: 10%, 5%, 3% e 2% nos quatro niveis.',
+    unilevelDescription: t.affiliateUnilevelDescription || 'Cada indicado com mensalidade ativa gera comissao apenas no nivel correspondente. Os percentuais sao configurados no painel administrativo.',
     matrixDescription: t.affiliateMatrixDescription || 'A matriz preenche da esquerda para a direita. As posicoes sao fixas e o pagamento sobe ate encontrar um usuario ativo.',
     estimatedMonthly: t.affiliateEstimatedMonthly || 'Estimativa mensal',
     receiveRequirement: t.affiliateReceiveRequirement || 'Para receber bonus, o usuario precisa estar ativo e em dia com a mensalidade.',
@@ -279,7 +279,8 @@ export function AffiliatesTab({
   summary,
   network,
   matrix,
-  isLoading
+  isLoading,
+  showMatrix = false
 }) {
   const [expandedRows, setExpandedRows] = useState(() => ({ 1: true, 2: true }));
   const resolvedUsername = String(username || '').trim().toLowerCase();
@@ -359,13 +360,13 @@ export function AffiliatesTab({
                 </span>
                 <div>
                   <h3 className="text-base font-black text-gray-900 dark:text-white">{labels.unilevelTitle}</h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">3% do 1 ao 10 nivel</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">10% / 5% / 3% / 2% da mensalidade</p>
                 </div>
               </div>
               <p className="mt-4 text-sm leading-6 text-gray-600 dark:text-gray-300">{labels.unilevelDescription}</p>
             </div>
 
-            <div className="rounded-3xl border border-blue-200 bg-blue-50/70 p-5 dark:border-blue-900/40 dark:bg-blue-950/10">
+            {showMatrix ? <div className="rounded-3xl border border-blue-200 bg-blue-50/70 p-5 dark:border-blue-900/40 dark:bg-blue-950/10">
               <div className="flex items-center gap-3">
                 <span className="inline-flex rounded-2xl bg-white p-2 text-blue-500 shadow-sm dark:bg-[#0F172A]">
                   <AffiliateMatrixIcon className="h-5 w-5" />
@@ -376,7 +377,7 @@ export function AffiliatesTab({
                 </div>
               </div>
               <p className="mt-4 text-sm leading-6 text-gray-600 dark:text-gray-300">{labels.matrixDescription}</p>
-            </div>
+            </div> : null}
 
             <div className={`rounded-3xl border p-5 lg:col-span-2 2xl:col-span-1 ${safeSummary.canReceiveBonuses ? 'border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/40 dark:bg-emerald-950/10' : 'border-rose-200 bg-rose-50/70 dark:border-rose-900/40 dark:bg-rose-950/10'}`}>
               <p className={`text-[10px] font-extrabold uppercase tracking-[0.18em] ${safeSummary.canReceiveBonuses ? 'text-emerald-600 dark:text-emerald-300' : 'text-rose-600 dark:text-rose-300'}`}>
@@ -395,7 +396,7 @@ export function AffiliatesTab({
             <SummaryMiniStat title={labels.networkDepth} value={String(safeSummary.maxDepthReached || 0)} accent="text-[#FF6B00] dark:text-orange-300" />
             <SummaryMiniStat title={t.leads || 'Leads'} value={String(safeSummary.networkCount || safeSummary.totalLeads || 0)} accent="text-[#FF6B00] dark:text-orange-300" />
             <SummaryMiniStat title={t.active || labels.activeStatus} value={String(safeSummary.activeNetworkCount || safeSummary.activeCount || 0)} accent="text-emerald-600 dark:text-emerald-300" />
-            <SummaryMiniStat title={labels.matrixFilled} value={String(safeSummary.matrixFilledCount || 0)} accent="text-blue-600 dark:text-blue-300" />
+            <SummaryMiniStat title="Niveis" value={String((safeNetwork.levels || []).length || 4)} accent="text-blue-600 dark:text-blue-300" />
           </div>
         </div>
 
@@ -435,17 +436,19 @@ export function AffiliatesTab({
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-1">
             <MetricCard
-              title="Unilevel mensal"
+              title="Comissao mensal"
               value={formatMoney(safeSummary.unilevelEstimatedAmount || 0)}
-              subtitle="Estimativa somada dos 10 niveis do unilevel."
+              subtitle="Estimativa dos 4 niveis sobre a mensalidade vigente."
               accent="text-orange-600 dark:text-orange-300"
             />
+            {showMatrix ? (
             <MetricCard
               title="Matriz mensal"
               value={formatMoney(safeSummary.matrixEstimatedAmount || 0)}
               subtitle="Estimativa dos pagamentos capturados pela matriz 3x10."
               accent="text-blue-600 dark:text-blue-300"
             />
+            ) : null}
           </div>
         </div>
       </div>
@@ -454,27 +457,38 @@ export function AffiliatesTab({
         <MetricCard
           title={labels.estimatedMonthly}
           value={formatMoney(safeSummary.totalEstimatedAmount || 0)}
-          subtitle="Projecao combinada do unilevel com a matriz no ciclo atual."
+          subtitle="Projecao dos niveis configurados sobre mensalidades ativas."
           accent="text-emerald-600 dark:text-emerald-300"
         />
         <MetricCard
           title="Unilevel"
           value={formatMoney(safeSummary.unilevelEstimatedAmount || 0)}
-          subtitle="Estimativa mensal dos 10 niveis da rede."
+          subtitle="Estimativa mensal dos niveis da rede."
           accent="text-orange-600 dark:text-orange-300"
         />
+        {showMatrix ? (
         <MetricCard
           title="Matriz"
           value={formatMoney(safeSummary.matrixEstimatedAmount || 0)}
           subtitle="Estimativa mensal capturada pela matriz 3x10."
           accent="text-blue-600 dark:text-blue-300"
         />
+        ) : null}
+        {showMatrix ? (
         <MetricCard
           title="Posicoes livres"
           value={String(Math.max((safeSummary.matrixCapacity || 0) - (safeSummary.matrixFilledCount || 0), 0))}
           subtitle={`${safeSummary.matrixCapacity || 0} posicoes totais na matriz 3x10.`}
           accent="text-slate-700 dark:text-slate-200"
         />
+        ) : (
+        <MetricCard
+          title="Niveis pagos"
+          value={String(safeSummary.maxDepthReached || 0)}
+          subtitle="Profundidade ja alcancada na sua rede."
+          accent="text-slate-700 dark:text-slate-200"
+        />
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
@@ -483,7 +497,7 @@ export function AffiliatesTab({
             <div>
               <h3 className="text-xl font-black text-gray-900 dark:text-white">{labels.unilevelTitle}</h3>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Visualize os 10 niveis, os usuarios ativos em cada um e a estimativa mensal por nivel.
+                Visualize cada nivel, os usuarios ativos e a estimativa sobre a mensalidade vigente.
               </p>
             </div>
             {isLoading ? <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">{t.affiliateLoading || 'Carregando...'}</span> : null}
@@ -502,7 +516,7 @@ export function AffiliatesTab({
           </div>
         </div>
 
-        <div className="space-y-4">
+        {showMatrix ? <div className="space-y-4">
           <div className="rounded-[28px] border border-gray-200 bg-white p-6 shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
             <div className="flex items-center gap-3">
               <span className="inline-flex rounded-2xl bg-orange-50 p-2 text-[#FF6B00] dark:bg-orange-950/20 dark:text-orange-300">
@@ -542,10 +556,10 @@ export function AffiliatesTab({
               ))}
             </div>
           </div>
-        </div>
+        </div> : null}
       </div>
 
-      <div className="space-y-4">
+      {showMatrix ? <div className="space-y-4">
         <div>
           <h3 className="text-xl font-black text-gray-900 dark:text-white">{labels.matrixTitle}</h3>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -564,7 +578,7 @@ export function AffiliatesTab({
             formatMoney={formatMoney}
           />
         ))}
-      </div>
+      </div> : null}
     </div>
   );
 }
