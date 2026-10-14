@@ -1,5 +1,5 @@
-import { Icons } from '../../constants/icons';
 import { useEffect, useMemo, useState } from 'react';
+import { Icons } from '../../constants/icons';
 import {
   createCopyTradingVideoItem,
   getCopyTradingAccess,
@@ -9,15 +9,6 @@ import {
   submitMyCopyTradingIqId,
   updateCopyTradingVideoItem
 } from '../../services/supabaseCopyTradingPhase1';
-
-function formatEntitlementDate(value) {
-  if (!value) return '--';
-  return new Intl.DateTimeFormat(undefined, {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  }).format(new Date(value));
-}
 
 function buildUrl(base, params) {
   const url = new URL(base);
@@ -43,9 +34,9 @@ export function CopyTab({
   showToast,
   t,
   promoCode,
-  copyEntitlement,
-  isCopyTradingActive,
-  isCopyEntitlementLoading,
+  membershipRemainingDays,
+  membershipExpirationDate,
+  isMembershipLoading,
   workspaceId,
   isLoggedIn,
   isAdmin,
@@ -320,13 +311,13 @@ export function CopyTab({
           <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-[#334155] dark:bg-[#0B1220]">
             <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">{t.copyStatusDaysLeftLabel}</p>
             <p className="mt-2 text-2xl font-black text-gray-900 dark:text-white">
-              {isCopyEntitlementLoading ? '--' : (copyEntitlement?.remainingDays ?? 0)}
+              {isMembershipLoading ? '--' : (membershipRemainingDays ?? 0)}
             </p>
           </div>
           <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-[#334155] dark:bg-[#0B1220]">
             <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">{t.copyStatusExpiresAtLabel}</p>
             <p className="mt-2 text-sm font-bold text-gray-900 dark:text-white">
-              {isCopyEntitlementLoading ? '--' : formatEntitlementDate(copyEntitlement?.expiresAt)}
+              {isMembershipLoading ? '--' : (membershipExpirationDate || '--')}
             </p>
           </div>
           <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-[#334155] dark:bg-[#0B1220]">
@@ -339,7 +330,7 @@ export function CopyTab({
 
         {!accessState.canOperateCopy ? (
           <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/15 dark:text-amber-300 sm:flex-row sm:items-center sm:justify-between">
-            <span>Para iniciar o Copy operacional, voce precisa da mensalidade (com carencia de 3 dias) e do Pacote Copy Trading ativo.</span>
+            <span>Para operar o Copy, mantenha a mensalidade do BOT ativa e o ID da IQ Option aprovado.</span>
             <button
               type="button"
               onClick={() => setActiveTab?.('shop')}

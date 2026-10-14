@@ -23,7 +23,6 @@ import { useAdminState } from './hooks/useAdminState';
 import { useAffiliatesState } from './hooks/useAffiliatesState';
 import { useDashboardState } from './hooks/useDashboardState';
 import { useLicenseState } from './hooks/useLicenseState';
-import { useCopyTradingEntitlementState } from './hooks/useCopyTradingEntitlementState';
 import { useSessionState } from './hooks/useSessionState';
 import { useSettingsState } from './hooks/useSettingsState';
 import { useSupabaseWorkspace } from './hooks/useSupabaseWorkspace';
@@ -36,7 +35,6 @@ export default function App() {
   const ui = useUiState();
   const session = useSessionState(ui.showToast, ui.t);
   const [authView, setAuthView] = useState('login');
-  const [entitlementsReloadToken, setEntitlementsReloadToken] = useState(0);
   const admin = useAdminState(session.isAdmin, ui.showToast, ui.t);
   const affiliates = useAffiliatesState(session.isLoggedIn, ui.showToast, ui.t);
   const commercial = useCommercialState(session.isLoggedIn, ui.showToast);
@@ -49,9 +47,8 @@ export default function App() {
     ui.showToast,
     playAlertSound,
     ui.t,
-    () => setEntitlementsReloadToken((current) => current + 1)
+    undefined
   );
-  const copyEntitlement = useCopyTradingEntitlementState(workspace.workspaceId, session.isLoggedIn, ui.showToast, ui.t, entitlementsReloadToken);
   const broker = useBrokerState(workspace.workspaceId, ui.showToast, playAlertSound, ui.t);
   const settings = useSettingsState(workspace.workspaceId, ui.showToast, ui.t);
   const selectedBrokerName = settings.config.broker;
@@ -74,7 +71,6 @@ export default function App() {
     return broker.brokersList.reduce((highest, item) => Math.max(highest, getBrokerBalance(item)), 0);
   })();
   const hasMembershipActive = session.isAdmin || license.isMembershipActive;
-  const hasCopyAccess = session.isAdmin || (hasMembershipActive && copyEntitlement.isCopyTradingActive);
 
   const visibleTabs = session.isAdmin ? null : ['dashboard', 'account', 'copy', 'signals', 'shop', 'affiliates'];
   const affiliateView = applyCommercialOverview({
@@ -170,9 +166,9 @@ export default function App() {
             showToast={ui.showToast}
             t={ui.t}
             promoCode={session.promoCode}
-            copyEntitlement={copyEntitlement.copyEntitlement}
-            isCopyTradingActive={copyEntitlement.isCopyTradingActive}
-            isCopyEntitlementLoading={copyEntitlement.isCopyEntitlementLoading}
+            membershipRemainingDays={license.remainingDays}
+            membershipExpirationDate={license.expirationDate}
+            isMembershipLoading={license.isLicenseLoading}
             workspaceId={workspace.workspaceId}
             isLoggedIn={session.isLoggedIn}
             isAdmin={session.isAdmin}
@@ -280,7 +276,6 @@ export default function App() {
             isMembershipActive={license.isMembershipActive}
             membershipExpirationDate={license.expirationDate}
             monthlyBankrollUsd={monthlyBankrollUsd}
-            hasCopyAccess={hasCopyAccess}
             commercialConfig={commercial.commercialConfig}
           />
         );

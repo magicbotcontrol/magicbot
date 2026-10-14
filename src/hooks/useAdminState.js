@@ -379,7 +379,7 @@ export function useAdminState(isAdmin, showToast, t) {
         bankrollUsd: chargePreview?.bankrollUsd || 0,
         suggestedAmount: chargePreview?.suggestedAmount || DEFAULT_MONTHLY_AMOUNT,
         tierId: chargePreview?.tier?.id || 'starter',
-        tierLabel: chargePreview?.tier?.label || 'US$ 0 a 250'
+        tierLabel: chargePreview?.tier?.label || 'A partir de US$ 250'
       });
       const nextOverview = await loadOverview();
       setOverview(nextOverview);

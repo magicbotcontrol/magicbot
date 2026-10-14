@@ -80,17 +80,12 @@ export function AdminCommercialPanel({
           Os percentuais ficam nesta configuracao. A soma atual da rede e {share}% da mensalidade.
         </p>
         <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
-          <label className="text-xs font-bold text-gray-500">
-            Mensalidade (USD)
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={draft.monthlyUsd}
-              onChange={(event) => setDraft((current) => ({ ...current, monthlyUsd: Number(event.target.value) }))}
-              className="mt-2 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 dark:border-[#334155] dark:bg-[#0B1220] dark:text-white"
-            />
-          </label>
+          <div className="text-xs font-bold text-gray-500">
+            Mensalidade da loja
+            <p className="mt-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700 dark:border-[#334155] dark:bg-[#0B1220] dark:text-gray-200">
+              US$ 36, 80, 150, 250 e 500 conforme o capital
+            </p>
+          </div>
           <label className="text-xs font-bold text-gray-500">
             Capital minimo recomendado (USD)
             <input
@@ -124,7 +119,7 @@ export function AdminCommercialPanel({
                 className="mt-2 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 dark:border-[#334155] dark:bg-[#0B1220] dark:text-white"
               />
               <span className="mt-1 block font-semibold text-gray-400">
-                {formatMoney((Number(draft.monthlyUsd) || 0) * (Number(level.percent) || 0) / 100, 'USD')} por mensalidade
+                {formatMoney(36 * (Number(level.percent) || 0) / 100, 'USD')} na faixa inicial
               </span>
             </label>
           ))}

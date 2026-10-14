@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { BOT_MIN_CAPITAL_USD, resolveMonthlyTier } from '../../utils/monthlyPricing';
 import { Icons } from '../../constants/icons';
 import { listActiveFunnelBanners, listActiveFunnelVideos } from '../../services/supabaseFunnel';
 
@@ -167,6 +168,7 @@ export function DashboardTab({
     return groups;
   }, [videos]);
 
+  const membershipTier = resolveMonthlyTier(bankrollUsd);
   const handleOpenLink = (url) => {
     if (!url || typeof window === 'undefined') return;
     window.open(String(url), '_blank', 'noopener,noreferrer');
@@ -178,12 +180,12 @@ export function DashboardTab({
         <button type="button" onClick={() => onOpenTab?.('account')} className="rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">Capital</p>
           <p className="mt-2 text-xl font-black text-gray-900 dark:text-white">{formatMoney(bankrollUsd || 0, 'USD')}</p>
-          <p className="mt-1 text-xs text-gray-500">Minimo recomendado {formatMoney(commercialConfig?.minCapitalUsd || 250, 'USD')}</p>
+          <p className="mt-1 text-xs text-gray-500">Minimo da primeira faixa {formatMoney(commercialConfig?.minCapitalUsd || BOT_MIN_CAPITAL_USD, 'USD')}</p>
         </button>
         <button type="button" onClick={() => onOpenTab?.('shop')} className="rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">{commercialConfig?.boltName || 'BOT'}</p>
           <p className="mt-2 text-xl font-black text-gray-900 dark:text-white">{remainingDays > 0 ? 'Mensalidade ativa' : 'Mensalidade pendente'}</p>
-          <p className="mt-1 text-xs text-gray-500">Vence em {expirationDate || '--'} · {formatMoney(commercialConfig?.monthlyUsd || 36, 'USD')}/mes</p>
+          <p className="mt-1 text-xs text-gray-500">Vence em {expirationDate || '--'} · {formatMoney(membershipTier.amount, 'USD')}/mes · {membershipTier.label}</p>
         </button>
         <button type="button" onClick={() => onOpenTab?.('signals')} className="rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">Sinais</p>
