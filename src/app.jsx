@@ -6,6 +6,7 @@ import { AppHeader } from './components/layout/AppHeader';
 import { AppSidebar } from './components/layout/AppSidebar';
 import { ConfirmEmailScreen } from './components/layout/ConfirmEmailScreen';
 import { ForgotPasswordScreen } from './components/layout/ForgotPasswordScreen';
+import { LandingPage } from './components/layout/LandingPage';
 import { LoginScreen } from './components/layout/LoginScreen';
 import { ResetPasswordScreen } from './components/layout/ResetPasswordScreen';
 import { ToastNotification } from './components/layout/ToastNotification';
@@ -34,7 +35,8 @@ import { playAlertSound } from './utils/audio';
 export default function App() {
   const ui = useUiState();
   const session = useSessionState(ui.showToast, ui.t);
-  const [authView, setAuthView] = useState('login');
+  const [authView, setAuthView] = useState('landing');
+  const [loginMode, setLoginMode] = useState('signin');
   const admin = useAdminState(session.isAdmin, ui.showToast, ui.t);
   const affiliates = useAffiliatesState(session.isLoggedIn, ui.showToast, ui.t);
   const commercial = useCommercialState(session.isLoggedIn, ui.showToast);
@@ -112,11 +114,17 @@ export default function App() {
       return;
     }
 
-    setAuthView('login');
+    setAuthView('landing');
   }, []);
+
+  const openAuth = (mode) => {
+    setLoginMode(mode === 'signup' ? 'signup' : 'signin');
+    setAuthView('login');
+  };
 
   const navigateToAuthView = (nextView) => {
     const authRoutes = {
+      landing: '/',
       login: '/',
       'forgot-password': '/forgot-password.html',
       'reset-password': '/password-reset.html',
@@ -360,6 +368,15 @@ export default function App() {
       );
     }
 
+    if (authView === 'landing') {
+      return (
+        <>
+          <ToastNotification toastMessage={ui.toastMessage} />
+          <LandingPage onSignIn={() => openAuth('signin')} onSignUp={() => openAuth('signup')} />
+        </>
+      );
+    }
+
     return (
       <>
         <ToastNotification toastMessage={ui.toastMessage} />
@@ -372,6 +389,8 @@ export default function App() {
           authFeedback={session.authFeedback}
           clearAuthFeedback={session.clearAuthFeedback}
           onForgotPassword={() => navigateToAuthView('forgot-password')}
+          initialMode={loginMode}
+          onBackToLanding={() => setAuthView('landing')}
         />
       </>
     );

@@ -2,14 +2,14 @@ import { Icons } from '../../constants/icons';
 import { useEffect, useState } from 'react';
 import { AUTH_FEEDBACK_STATUS } from '../../utils/authFeedback';
 
-export function LoginScreen({ handleLogIn, validateReferralCode, t, isAuthLoading, isAuthSubmitting, authFeedback, clearAuthFeedback, onForgotPassword }) {
+export function LoginScreen({ handleLogIn, validateReferralCode, t, isAuthLoading, isAuthSubmitting, authFeedback, clearAuthFeedback, onForgotPassword, initialMode = 'signin', onBackToLanding }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [referralCode, setReferralCode] = useState('');
   const [promoCode, setPromoCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isCapsLockOn, setIsCapsLockOn] = useState(false);
-  const [mode, setMode] = useState('signin');
+  const [mode, setMode] = useState(initialMode === 'signup' ? 'signup' : 'signin');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationMessage, setValidationMessage] = useState('');
 
@@ -45,11 +45,16 @@ export function LoginScreen({ handleLogIn, validateReferralCode, t, isAuthLoadin
     })();
 
     const normalized = (rawFromQuery || rawFromPath).trim().toUpperCase();
-    if (!normalized) return;
+    if (!normalized) {
+      if (!normalizedPromo) {
+        setMode(initialMode === 'signup' ? 'signup' : 'signin');
+      }
+      return;
+    }
 
     setReferralCode(normalized);
     setMode('signup');
-  }, []);
+  }, [initialMode]);
 
   const feedbackTone =
     authFeedback.status === AUTH_FEEDBACK_STATUS.success
@@ -108,6 +113,15 @@ export function LoginScreen({ handleLogIn, validateReferralCode, t, isAuthLoadin
   return (
     <div className="flex h-screen items-center justify-center font-sans bg-gray-50 p-4">
       <div className="bg-white rounded-3xl border border-gray-200 p-8 shadow-2xl max-w-sm w-full space-y-6 text-center animate-fade-in">
+        {onBackToLanding ? (
+          <button
+            type="button"
+            onClick={onBackToLanding}
+            className="text-xs font-semibold text-gray-400 transition-colors hover:text-[#FF6B00]"
+          >
+            Voltar para a página inicial
+          </button>
+        ) : null}
         <div className="flex justify-center flex-col items-center">
           <Icons.Logo className="w-16 h-16 rounded-xl" />
           <h2 className="text-2xl font-black text-gray-900 mt-2 tracking-tight">
@@ -198,21 +212,19 @@ export function LoginScreen({ handleLogIn, validateReferralCode, t, isAuthLoadin
         <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
-            onClick={handleSubmit}
+            onClick={() => handleSubmit(mode)}
             disabled={isSubmitting || isAuthLoading || isAuthSubmitting}
             className="w-full py-3.5 bg-[#FF6B00] text-white font-bold text-xs rounded-xl shadow-lg shadow-[#FF6B00]/20 hover:bg-[#FF7F1F] transition-all disabled:opacity-60"
           >
-            {t.loginAccess}
+            {mode === 'signup' ? t.createAccount : t.loginAccess}
           </button>
           <button
             type="button"
-            onClick={() => {
-              handleSubmit('signup');
-            }}
+            onClick={() => handleSubmit(mode === 'signup' ? 'signin' : 'signup')}
             disabled={isSubmitting || isAuthLoading || isAuthSubmitting}
             className="w-full py-3.5 bg-gray-100 text-gray-700 font-bold text-xs rounded-xl hover:bg-gray-200 transition-all disabled:opacity-60"
           >
-            {t.createAccount}
+            {mode === 'signup' ? t.loginAccess : t.createAccount}
           </button>
         </div>
 

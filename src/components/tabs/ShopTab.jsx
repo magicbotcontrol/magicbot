@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Icons } from '../../constants/icons';
 import { networkSharePercent } from '../../constants/commercialModel';
 import { BOT_MIN_CAPITAL_USD, MONTHLY_PRICING_TIERS, resolveMonthlyTier } from '../../utils/monthlyPricing';
@@ -42,19 +43,38 @@ export function ShopTab({
   const minCapitalUsd = Number(commercialConfig?.minCapitalUsd || BOT_MIN_CAPITAL_USD);
   const hasDetectedBankroll = Number.isFinite(Number(monthlyBankrollUsd)) && Number(monthlyBankrollUsd) > 0;
   const membershipTier = resolveMonthlyTier(monthlyBankrollUsd);
-  const monthlyUsd = membershipTier.amount;
+  const [tierChoice, setTierChoice] = useState(() => {
+    const fallbackId = membershipTier.id;
+    if (typeof window === 'undefined') return { id: fallbackId, touched: false };
+    const stored = window.sessionStorage.getItem('magicbot.selectedMonthlyTier');
+    window.sessionStorage.removeItem('magicbot.selectedMonthlyTier');
+    if (stored && MONTHLY_PRICING_TIERS.some((tier) => tier.id === stored)) {
+      return { id: stored, touched: true };
+    }
+    return { id: fallbackId, touched: false };
+  });
+
+  useEffect(() => {
+    if (!tierChoice.touched) {
+      setTierChoice({ id: membershipTier.id, touched: false });
+    }
+  }, [membershipTier.id, tierChoice.touched]);
+
+  const selectedTier = MONTHLY_PRICING_TIERS.find((tier) => tier.id === tierChoice.id) || membershipTier;
+  const monthlyUsd = selectedTier.amount;
+  const choseAnotherTier = selectedTier.id !== membershipTier.id;
   const membershipOffer = {
     kind: 'membership',
     title: `Mensalidade ${boltName}`,
-    description: `A mensalidade do ${boltName} acompanha o capital. A faixa inicial e ${formatMoney(MONTHLY_PRICING_TIERS[0].amount, 'USD')} a partir de ${formatMoney(minCapitalUsd, 'USD')}.`,
+    description: `A mensalidade do ${boltName} acompanha o capital. A faixa escolhida e ${selectedTier.label}, por ${formatMoney(selectedTier.amount, 'USD')}.`,
     amount: monthlyUsd,
     days: 30,
-    planName: `membership-monthly-${membershipTier.id}`,
-    tierId: membershipTier.id,
-    tierLabel: membershipTier.label,
+    planName: `membership-monthly-${selectedTier.id}`,
+    tierId: selectedTier.id,
+    tierLabel: selectedTier.label,
     bankrollUsd: Number(monthlyBankrollUsd || 0),
-    manualOverride: false,
-    successMessage: `Mensalidade ${boltName} ativada por 30 dias na faixa ${membershipTier.label}.`
+    manualOverride: choseAnotherTier,
+    successMessage: `Mensalidade ${boltName} ativada por 30 dias na faixa ${selectedTier.label}.`
   };
 
   return (
@@ -69,6 +89,44 @@ export function ShopTab({
         </p>
       </div>
 
+      <section className="rounded-[28px] border border-gray-200 bg-white p-7 shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
+        <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#FF6B00]">Planos do BOT</p>
+        <h3 className="mt-2 text-xl font-black text-gray-900 dark:text-white">Mensalidade conforme o capital</h3>
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+          Escolha a faixa do seu capital. O valor da mensalidade e o pagamento usam a faixa selecionada.
+        </p>
+        <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+          {MONTHLY_PRICING_TIERS.map((tier) => {
+            const isSelected = tier.id === selectedTier.id;
+            const isSuggested = tier.id === membershipTier.id;
+            return (
+              <button
+                key={tier.id}
+                type="button"
+                aria-pressed={isSelected}
+                onClick={() => setTierChoice({ id: tier.id, touched: true })}
+                className={`rounded-2xl border p-4 text-left transition-colors ${
+                  isSelected
+                    ? 'border-[#FF6B00] bg-orange-50 dark:bg-orange-950/20'
+                    : 'border-gray-200 bg-gray-50 hover:border-[#FF6B00]/40 dark:border-[#334155] dark:bg-[#0B1220]'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-400">{tier.label}</p>
+                  {isSuggested ? (
+                    <span className="rounded-full bg-[#FF6B00] px-2 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-white">Atual</span>
+                  ) : null}
+                </div>
+                <p className={`mt-3 text-2xl font-black ${isSelected ? 'text-orange-600 dark:text-orange-300' : 'text-gray-900 dark:text-white'}`}>
+                  {formatMoney(tier.amount, 'USD')}
+                </p>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">por mes</p>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
       <section className="rounded-[28px] border border-[#FF6B00] bg-white p-7 shadow-md dark:border-[#FF8A3D] dark:bg-[#1E293B]">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
@@ -78,13 +136,14 @@ export function ShopTab({
             </div>
             <p className="mt-2 max-w-2xl text-sm text-gray-500 dark:text-gray-400">{membershipOffer.description}</p>
             <p className="mt-5 text-4xl font-black text-orange-500 dark:text-orange-400">{formatMoney(membershipOffer.amount, 'USD')}</p>
-            <p className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-300">{membershipTier.label}</p>
+            <p className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-300">{selectedTier.label}</p>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               {isMembershipActive ? `Expira em ${membershipExpirationDate || '-'}` : 'Renovação de 30 dias da base do workspace.'}
             </p>
             <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/15 dark:text-amber-300">
               {commercialConfig?.riskDisclaimer} Capital minimo da primeira faixa: {formatMoney(minCapitalUsd, 'USD')}.
-              {hasDetectedBankroll ? ` Banca informada: ${formatMoney(monthlyBankrollUsd, 'USD')}.` : ' Sem banca lida, a cobranca usa a faixa inicial.'}
+              {hasDetectedBankroll ? ` Banca informada: ${formatMoney(monthlyBankrollUsd, 'USD')}.` : ' Sem banca lida, a sugestao fica na faixa inicial.'}
+              {choseAnotherTier ? ` Voce escolheu ${selectedTier.label} em vez da faixa sugerida (${membershipTier.label}).` : ''}
             </div>
           </div>
 
@@ -94,7 +153,7 @@ export function ShopTab({
         </div>
 
         <FeatureList items={[
-          `Faixa atual: ${membershipTier.label}`,
+          `Faixa escolhida: ${selectedTier.label}`,
           `Mensalidade desta faixa: ${formatMoney(monthlyUsd, 'USD')}`,
           `${networkSharePercent(commercialConfig)}% da mensalidade paga segue para a rede em ${commercialConfig?.levels?.length || 4} niveis`
         ]} />
@@ -129,36 +188,6 @@ export function ShopTab({
         </div>
       </section>
 
-      <section className="rounded-[28px] border border-gray-200 bg-white p-7 shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
-        <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#FF6B00]">Planos do BOT</p>
-        <h3 className="mt-2 text-xl font-black text-gray-900 dark:text-white">Mensalidade conforme o capital</h3>
-        <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
-          {MONTHLY_PRICING_TIERS.map((tier) => {
-            const isCurrent = tier.id === membershipTier.id;
-            return (
-              <div
-                key={tier.id}
-                className={`rounded-2xl border p-4 ${
-                  isCurrent
-                    ? 'border-[#FF6B00] bg-orange-50 dark:bg-orange-950/20'
-                    : 'border-gray-200 bg-gray-50 dark:border-[#334155] dark:bg-[#0B1220]'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-400">{tier.label}</p>
-                  {isCurrent ? (
-                    <span className="rounded-full bg-[#FF6B00] px-2 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-white">Atual</span>
-                  ) : null}
-                </div>
-                <p className={`mt-3 text-2xl font-black ${isCurrent ? 'text-orange-600 dark:text-orange-300' : 'text-gray-900 dark:text-white'}`}>
-                  {formatMoney(tier.amount, 'USD')}
-                </p>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">por mes</p>
-              </div>
-            );
-          })}
-        </div>
-      </section>
     </div>
   );
 }
