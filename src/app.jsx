@@ -195,6 +195,11 @@ export default function App() {
             network={affiliateView.network}
             matrix={affiliateView.matrix}
             isLoading={affiliates.isAffiliatesLoading}
+            wallet={affiliates.affiliateWallet}
+            commercialConfig={commercial.commercialConfig}
+            isWalletLoading={affiliates.isWalletLoading}
+            isWithdrawSubmitting={affiliates.isWithdrawSubmitting}
+            onRequestWithdrawal={affiliates.submitAffiliateWithdrawal}
           />
         );
       case 'account':

@@ -3,6 +3,9 @@ export const DEFAULT_COMMERCIAL_CONFIG = {
   monthlyUsd: 36,
   minCapitalUsd: 250,
   riskDisclaimer: 'Rentabilidade nao e garantida e envolve riscos.',
+  withdrawMinUsd: 10,
+  withdrawFeePercent: 5,
+  withdrawRequiresActivePackage: true,
   levels: [
     { level: 1, percent: 10 },
     { level: 2, percent: 5 },
@@ -38,6 +41,9 @@ export function normalizeCommercialConfig(input) {
     monthlyUsd: Math.max(0, toNumber(source.monthlyUsd, DEFAULT_COMMERCIAL_CONFIG.monthlyUsd)),
     minCapitalUsd: Math.max(0, toNumber(source.minCapitalUsd, DEFAULT_COMMERCIAL_CONFIG.minCapitalUsd)),
     riskDisclaimer: String(source.riskDisclaimer || DEFAULT_COMMERCIAL_CONFIG.riskDisclaimer).trim(),
+    withdrawMinUsd: Math.max(0, toNumber(source.withdrawMinUsd, DEFAULT_COMMERCIAL_CONFIG.withdrawMinUsd)),
+    withdrawFeePercent: Math.max(0, toNumber(source.withdrawFeePercent, DEFAULT_COMMERCIAL_CONFIG.withdrawFeePercent)),
+    withdrawRequiresActivePackage: source.withdrawRequiresActivePackage !== false,
     levels: levels
       .map((item, index) => ({
         level: Math.max(1, Math.round(toNumber(item?.level, index + 1))),
@@ -57,6 +63,14 @@ export function normalizeCommercialConfig(input) {
 
 export function networkSharePercent(config) {
   return (config?.levels || []).reduce((sum, item) => sum + Number(item.percent || 0), 0);
+}
+
+export function calcWithdrawalFee(amountUsd, config) {
+  const amount = Math.max(0, Number(amountUsd) || 0);
+  const feePercent = Math.max(0, Number(config?.withdrawFeePercent ?? DEFAULT_COMMERCIAL_CONFIG.withdrawFeePercent) || 0);
+  const feeUsd = Math.round(amount * (feePercent / 100) * 100) / 100;
+  const netUsd = Math.round((amount - feeUsd) * 100) / 100;
+  return { amountUsd: amount, feePercent, feeUsd, netUsd };
 }
 
 export function levelPercent(config, level) {

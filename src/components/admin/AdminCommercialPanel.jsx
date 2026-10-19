@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { networkSharePercent } from '../../constants/commercialModel';
+import { testNowPaymentsConnection } from '../../services/nowPaymentsCheckout';
 
 const EMPTY_SIGNAL = {
   asset: '',
@@ -28,6 +29,8 @@ export function AdminCommercialPanel({
   }, [config]);
   const [signalDraft, setSignalDraft] = useState(EMPTY_SIGNAL);
   const [isSaving, setIsSaving] = useState(false);
+  const [isTestingPayments, setIsTestingPayments] = useState(false);
+  const [paymentsTestResult, setPaymentsTestResult] = useState(null);
   const share = networkSharePercent(draft);
 
   const updateLevel = (level, percent) => {
@@ -53,6 +56,22 @@ export function AdminCommercialPanel({
       showToast?.(error instanceof Error ? error.message : 'Nao foi possivel salvar as regras.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const testNowPayments = async () => {
+    setIsTestingPayments(true);
+    setPaymentsTestResult(null);
+    try {
+      const result = await testNowPaymentsConnection();
+      setPaymentsTestResult(result);
+      showToast?.(result?.message || (result?.ok ? 'NowPayments ok.' : 'NowPayments com falha.'));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Nao foi possivel testar a NowPayments.';
+      setPaymentsTestResult({ ok: false, message });
+      showToast?.(message);
+    } finally {
+      setIsTestingPayments(false);
     }
   };
 
@@ -124,6 +143,83 @@ export function AdminCommercialPanel({
             </label>
           ))}
         </div>
+      </section>
+
+      <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
+        <h3 className="text-lg font-black text-gray-900 dark:text-white">Regras de saque</h3>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          Indicacao fica liberada. O saque exige conta ativa com pacote/mensalidade, minimo de US$ 10 e taxa de 5%.
+        </p>
+        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <label className="text-xs font-bold text-gray-500">
+            Minimo de saque (USD)
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={draft.withdrawMinUsd}
+              onChange={(event) => setDraft((current) => ({ ...current, withdrawMinUsd: Number(event.target.value) }))}
+              className="mt-2 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 dark:border-[#334155] dark:bg-[#0B1220] dark:text-white"
+            />
+          </label>
+          <label className="text-xs font-bold text-gray-500">
+            Taxa de saque (%)
+            <input
+              type="number"
+              min="0"
+              step="0.1"
+              value={draft.withdrawFeePercent}
+              onChange={(event) => setDraft((current) => ({ ...current, withdrawFeePercent: Number(event.target.value) }))}
+              className="mt-2 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 dark:border-[#334155] dark:bg-[#0B1220] dark:text-white"
+            />
+          </label>
+          <label className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-xs font-bold text-gray-600 dark:border-[#334155] dark:bg-[#0B1220] dark:text-gray-300">
+            <input
+              type="checkbox"
+              checked={draft.withdrawRequiresActivePackage !== false}
+              onChange={(event) => setDraft((current) => ({ ...current, withdrawRequiresActivePackage: event.target.checked }))}
+              className="h-4 w-4 accent-[#FF6B00]"
+            />
+            Exigir pacote/mensalidade ativa para sacar
+          </label>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-black text-gray-900 dark:text-white">NowPayments</h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Testa a chave da API e as moedas liberadas para cobranca da mensalidade.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={testNowPayments}
+            disabled={isTestingPayments}
+            className="rounded-2xl bg-[#FF6B00] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#FF7F1F] disabled:opacity-60"
+          >
+            {isTestingPayments ? 'Testando...' : 'Testar NowPayments'}
+          </button>
+        </div>
+        {paymentsTestResult ? (
+          <div className={`mt-4 rounded-2xl border px-4 py-3 text-sm font-semibold ${
+            paymentsTestResult.ok
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300'
+              : 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-300'
+          }`}>
+            <p>{paymentsTestResult.message || (paymentsTestResult.ok ? 'Conexao ok.' : 'Falha na conexao.')}</p>
+            {Array.isArray(paymentsTestResult.currencies) && paymentsTestResult.currencies.length ? (
+              <p className="mt-2 text-xs opacity-90">
+                Moedas: {paymentsTestResult.currencies.map((item) => String(item).toUpperCase()).join(', ')}
+              </p>
+            ) : null}
+            <p className="mt-2 text-xs opacity-90">
+              API key: {paymentsTestResult.apiKeyConfigured ? 'ok' : 'ausente'} · IPN secret: {paymentsTestResult.ipnSecretConfigured ? 'ok' : 'ausente'}
+              {paymentsTestResult.defaultCurrency ? ` · padrao ${String(paymentsTestResult.defaultCurrency).toUpperCase()}` : ''}
+            </p>
+          </div>
+        ) : null}
       </section>
 
       <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">

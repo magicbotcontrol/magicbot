@@ -91,3 +91,101 @@ export async function getAffiliateOverview() {
     }
   };
 }
+
+function mapWithdrawalRequest(row) {
+  return {
+    id: row?.id || '',
+    amountUsd: Number(row?.amountUsd || 0),
+    feePercent: Number(row?.feePercent || 0),
+    feeUsd: Number(row?.feeUsd || 0),
+    netUsd: Number(row?.netUsd || 0),
+    currency: row?.currency || 'USDTTRC20',
+    walletAddress: row?.walletAddress || '',
+    status: row?.status || 'pending',
+    note: row?.note || '',
+    createdAt: row?.createdAt || null,
+    processedAt: row?.processedAt || null
+  };
+}
+
+export function emptyAffiliateWallet() {
+  return {
+    rules: {
+      withdrawMinUsd: 10,
+      withdrawFeePercent: 5,
+      withdrawRequiresActivePackage: true
+    },
+    isActivePackage: false,
+    canWithdraw: false,
+    pendingCommissionsUsd: 0,
+    reservedWithdrawalsUsd: 0,
+    paidCommissionsUsd: 0,
+    availableUsd: 0,
+    requests: []
+  };
+}
+
+export async function getAffiliateWallet() {
+  assertSupabase();
+
+  const result = await supabase.rpc('get_my_affiliate_wallet');
+  if (result.error) {
+    throw result.error;
+  }
+
+  const payload = result.data || {};
+  const rules = payload.rules || {};
+
+  return {
+    rules: {
+      withdrawMinUsd: Number(rules.withdrawMinUsd ?? 10),
+      withdrawFeePercent: Number(rules.withdrawFeePercent ?? 5),
+      withdrawRequiresActivePackage: rules.withdrawRequiresActivePackage !== false
+    },
+    isActivePackage: Boolean(payload.isActivePackage),
+    canWithdraw: Boolean(payload.canWithdraw),
+    pendingCommissionsUsd: Number(payload.pendingCommissionsUsd || 0),
+    reservedWithdrawalsUsd: Number(payload.reservedWithdrawalsUsd || 0),
+    paidCommissionsUsd: Number(payload.paidCommissionsUsd || 0),
+    availableUsd: Number(payload.availableUsd || 0),
+    requests: Array.isArray(payload.requests) ? payload.requests.map(mapWithdrawalRequest) : []
+  };
+}
+
+export async function requestAffiliateWithdrawal({ amountUsd, walletAddress, currency, note }) {
+  assertSupabase();
+
+  const result = await supabase.rpc('request_affiliate_withdrawal', {
+    p_amount_usd: Number(amountUsd),
+    p_wallet_address: String(walletAddress || '').trim(),
+    p_currency: String(currency || 'USDTTRC20').trim(),
+    p_note: note || null
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  const payload = result.data || {};
+  const walletPayload = payload.wallet || {};
+  const rules = walletPayload.rules || {};
+
+  return {
+    ok: Boolean(payload.ok),
+    request: mapWithdrawalRequest(payload.request || {}),
+    wallet: {
+      rules: {
+        withdrawMinUsd: Number(rules.withdrawMinUsd ?? 10),
+        withdrawFeePercent: Number(rules.withdrawFeePercent ?? 5),
+        withdrawRequiresActivePackage: rules.withdrawRequiresActivePackage !== false
+      },
+      isActivePackage: Boolean(walletPayload.isActivePackage),
+      canWithdraw: Boolean(walletPayload.canWithdraw),
+      pendingCommissionsUsd: Number(walletPayload.pendingCommissionsUsd || 0),
+      reservedWithdrawalsUsd: Number(walletPayload.reservedWithdrawalsUsd || 0),
+      paidCommissionsUsd: Number(walletPayload.paidCommissionsUsd || 0),
+      availableUsd: Number(walletPayload.availableUsd || 0),
+      requests: Array.isArray(walletPayload.requests) ? walletPayload.requests.map(mapWithdrawalRequest) : []
+    }
+  };
+}

@@ -27,6 +27,12 @@ export async function getNowPaymentsMerchantCurrencies() {
   });
 }
 
+export async function testNowPaymentsConnection() {
+  return invokeNowPaymentsCheckout({
+    action: 'health_check'
+  });
+}
+
 export async function createNowPaymentsPayment({ workspaceId, offer, payCurrency }) {
   return invokeNowPaymentsCheckout({
     action: 'create_payment',

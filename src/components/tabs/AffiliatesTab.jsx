@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Icons } from '../../constants/icons';
+import { DEFAULT_COMMERCIAL_CONFIG, calcWithdrawalFee } from '../../constants/commercialModel';
+import { emptyAffiliateWallet } from '../../services/supabaseAffiliates';
 
 function formatJoinedAt(value) {
   if (!value) return '--';
@@ -270,6 +272,161 @@ function buildLabels(t) {
   };
 }
 
+function WithdrawalPanel({
+  wallet,
+  commercialConfig,
+  formatMoney,
+  isLoading,
+  isSubmitting,
+  onSubmit
+}) {
+  const safeWallet = wallet || emptyAffiliateWallet();
+  const rules = {
+    withdrawMinUsd: Number(commercialConfig?.withdrawMinUsd ?? safeWallet.rules?.withdrawMinUsd ?? DEFAULT_COMMERCIAL_CONFIG.withdrawMinUsd),
+    withdrawFeePercent: Number(commercialConfig?.withdrawFeePercent ?? safeWallet.rules?.withdrawFeePercent ?? DEFAULT_COMMERCIAL_CONFIG.withdrawFeePercent),
+    withdrawRequiresActivePackage: commercialConfig?.withdrawRequiresActivePackage !== false
+      && safeWallet.rules?.withdrawRequiresActivePackage !== false
+  };
+  const [amount, setAmount] = useState('');
+  const [walletAddress, setWalletAddress] = useState('');
+  const [localError, setLocalError] = useState('');
+  const amountNumber = Number(amount);
+  const preview = calcWithdrawalFee(Number.isFinite(amountNumber) ? amountNumber : 0, rules);
+  const statusLabels = {
+    pending: 'Pendente',
+    approved: 'Aprovado',
+    paid: 'Pago',
+    rejected: 'Recusado',
+    cancelled: 'Cancelado'
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setLocalError('');
+    if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
+      setLocalError('Informe um valor valido.');
+      return;
+    }
+    if (amountNumber < rules.withdrawMinUsd) {
+      setLocalError(`Minimo de saque: ${formatMoney(rules.withdrawMinUsd, 'USD')}.`);
+      return;
+    }
+    if (!walletAddress.trim() || walletAddress.trim().length < 8) {
+      setLocalError('Informe o endereco da carteira.');
+      return;
+    }
+    try {
+      await onSubmit?.({
+        amountUsd: amountNumber,
+        walletAddress: walletAddress.trim(),
+        currency: 'USDTTRC20'
+      });
+      setAmount('');
+      setWalletAddress('');
+    } catch (error) {
+      setLocalError(error instanceof Error ? error.message : 'Nao foi possivel solicitar o saque.');
+    }
+  };
+
+  return (
+    <section className="rounded-[28px] border border-gray-200 bg-white p-6 shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#FF6B00]">Saque de comissoes</p>
+          <h3 className="mt-2 text-xl font-black text-gray-900 dark:text-white">Carteira do afiliado</h3>
+          <p className="mt-2 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
+            Voce pode indicar a qualquer momento. Para sacar, precisa estar ativo com pacote/mensalidade.
+            Minimo {formatMoney(rules.withdrawMinUsd, 'USD')} e taxa de {rules.withdrawFeePercent}%.
+          </p>
+        </div>
+        <span className={`rounded-full px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.14em] ${
+          safeWallet.isActivePackage
+            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+            : 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300'
+        }`}>
+          {safeWallet.isActivePackage ? 'Pacote ativo' : 'Pacote inativo'}
+        </span>
+      </div>
+
+      <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <SummaryMiniStat title="Disponivel" value={isLoading ? '...' : formatMoney(safeWallet.availableUsd, 'USD')} accent="text-emerald-600 dark:text-emerald-300" />
+        <SummaryMiniStat title="Comissoes pendentes" value={isLoading ? '...' : formatMoney(safeWallet.pendingCommissionsUsd, 'USD')} accent="text-[#FF6B00]" />
+        <SummaryMiniStat title="Reservado em saque" value={isLoading ? '...' : formatMoney(safeWallet.reservedWithdrawalsUsd, 'USD')} accent="text-amber-600 dark:text-amber-300" />
+        <SummaryMiniStat title="Ja pago" value={isLoading ? '...' : formatMoney(safeWallet.paidCommissionsUsd, 'USD')} accent="text-blue-600 dark:text-blue-300" />
+      </div>
+
+      {!safeWallet.isActivePackage && rules.withdrawRequiresActivePackage ? (
+        <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-300">
+          Sua indicacao continua valendo, mas o saque so libera com mensalidade/pacote ativo.
+        </div>
+      ) : null}
+
+      <form onSubmit={handleSubmit} className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.2fr_auto]">
+        <label className="text-xs font-bold uppercase tracking-wide text-gray-400">
+          Valor (USD)
+          <input
+            type="number"
+            min={rules.withdrawMinUsd}
+            step="0.01"
+            value={amount}
+            onChange={(event) => setAmount(event.target.value)}
+            placeholder={String(rules.withdrawMinUsd)}
+            className="mt-2 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-900 dark:border-[#334155] dark:bg-[#0B1220] dark:text-white"
+          />
+        </label>
+        <label className="text-xs font-bold uppercase tracking-wide text-gray-400">
+          Carteira USDT TRC20
+          <input
+            type="text"
+            value={walletAddress}
+            onChange={(event) => setWalletAddress(event.target.value)}
+            placeholder="Endereco da carteira"
+            className="mt-2 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-900 dark:border-[#334155] dark:bg-[#0B1220] dark:text-white"
+          />
+        </label>
+        <div className="flex flex-col justify-end">
+          <button
+            type="submit"
+            disabled={isSubmitting || isLoading}
+            className="rounded-2xl bg-[#FF6B00] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#FF7F1F] disabled:opacity-60"
+          >
+            {isSubmitting ? 'Enviando...' : 'Solicitar saque'}
+          </button>
+        </div>
+      </form>
+
+      <div className="mt-4 flex flex-wrap gap-4 text-xs font-semibold text-gray-500 dark:text-gray-400">
+        <span>Taxa ({preview.feePercent}%): {formatMoney(preview.feeUsd, 'USD')}</span>
+        <span>Voce recebe: {formatMoney(preview.netUsd, 'USD')}</span>
+      </div>
+      {localError ? <p className="mt-3 text-sm font-semibold text-rose-600">{localError}</p> : null}
+
+      {Array.isArray(safeWallet.requests) && safeWallet.requests.length ? (
+        <div className="mt-6 overflow-hidden rounded-2xl border border-gray-200 dark:border-[#334155]">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-gray-50 text-[11px] font-extrabold uppercase tracking-wider text-gray-400 dark:bg-[#0B1220]">
+              <tr>
+                <th className="px-4 py-3">Valor</th>
+                <th className="px-4 py-3">Liquido</th>
+                <th className="px-4 py-3">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {safeWallet.requests.slice(0, 8).map((item) => (
+                <tr key={item.id} className="border-t border-gray-200 dark:border-[#334155]">
+                  <td className="px-4 py-3 font-semibold text-gray-900 dark:text-white">{formatMoney(item.amountUsd, 'USD')}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{formatMoney(item.netUsd, 'USD')}</td>
+                  <td className="px-4 py-3 font-bold text-[#FF6B00]">{statusLabels[item.status] || item.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 export function AffiliatesTab({
   handleCopyText,
   t,
@@ -280,7 +437,12 @@ export function AffiliatesTab({
   network,
   matrix,
   isLoading,
-  showMatrix = false
+  showMatrix = false,
+  wallet,
+  commercialConfig,
+  isWalletLoading,
+  isWithdrawSubmitting,
+  onRequestWithdrawal
 }) {
   const [expandedRows, setExpandedRows] = useState(() => ({ 1: true, 2: true }));
   const resolvedUsername = String(username || '').trim().toLowerCase();
@@ -293,7 +455,9 @@ export function AffiliatesTab({
   const safeSummary = summary || {};
   const safeNetwork = network || {};
   const safeMatrix = matrix || {};
-  const formatMoney = (amount) => (typeof formatMoneyProp === 'function' ? formatMoneyProp(amount, 'BRL') : fallbackMoney(amount));
+  const formatMoney = (amount, currency = 'BRL') => (
+    typeof formatMoneyProp === 'function' ? formatMoneyProp(amount, currency) : fallbackMoney(amount)
+  );
   const labels = buildLabels(t);
 
   const levels = useMemo(() => {
@@ -334,6 +498,15 @@ export function AffiliatesTab({
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 animate-fade-in">
+      <WithdrawalPanel
+        wallet={wallet}
+        commercialConfig={commercialConfig}
+        formatMoney={formatMoney}
+        isLoading={isWalletLoading || isLoading}
+        isSubmitting={isWithdrawSubmitting}
+        onSubmit={onRequestWithdrawal}
+      />
+
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
         <div className="xl:col-span-8 rounded-[28px] border border-gray-200 bg-white p-6 shadow-sm dark:border-[#334155] dark:bg-[#1E293B]">
           <div className="flex flex-wrap items-start justify-between gap-4">
