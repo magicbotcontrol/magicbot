@@ -99,7 +99,7 @@ function mapWithdrawalRequest(row) {
     feePercent: Number(row?.feePercent || 0),
     feeUsd: Number(row?.feeUsd || 0),
     netUsd: Number(row?.netUsd || 0),
-    currency: row?.currency || 'USDTTRC20',
+    currency: row?.currency || 'USDTBSC',
     walletAddress: row?.walletAddress || '',
     status: row?.status || 'pending',
     note: row?.note || '',
@@ -158,7 +158,7 @@ export async function requestAffiliateWithdrawal({ amountUsd, walletAddress, cur
   const result = await supabase.rpc('request_affiliate_withdrawal', {
     p_amount_usd: Number(amountUsd),
     p_wallet_address: String(walletAddress || '').trim(),
-    p_currency: String(currency || 'USDTTRC20').trim(),
+    p_currency: String(currency || 'USDTBSC').trim(),
     p_note: note || null
   });
 

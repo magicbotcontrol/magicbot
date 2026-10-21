@@ -319,7 +319,7 @@ function WithdrawalPanel({
       await onSubmit?.({
         amountUsd: amountNumber,
         walletAddress: walletAddress.trim(),
-        currency: 'USDTTRC20'
+        currency: 'USDTBSC'
       });
       setAmount('');
       setWalletAddress('');
@@ -375,7 +375,7 @@ function WithdrawalPanel({
           />
         </label>
         <label className="text-xs font-bold uppercase tracking-wide text-gray-400">
-          Carteira USDT TRC20
+          Carteira USDT BEP20
           <input
             type="text"
             value={walletAddress}

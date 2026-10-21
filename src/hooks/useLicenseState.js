@@ -6,6 +6,12 @@ import {
   getNowPaymentsPaymentStatus
 } from '../services/nowPaymentsCheckout';
 
+const TRON_PAY_CURRENCIES = new Set(['usdttrc20', 'usdttrc', 'usdttrx', 'trx', 'trc20']);
+
+function withoutTronNetwork(currencies) {
+  return currencies.filter((currency) => !TRON_PAY_CURRENCIES.has(String(currency || '').trim().toLowerCase()));
+}
+
 export function useLicenseState(workspaceId, isLoggedIn, isAdmin, showToast, playAlertSound, t, onPackagePurchased) {
   const showToastRef = useRef(showToast);
   const errorMessageRef = useRef(t.supabaseSyncError);
@@ -115,9 +121,16 @@ export function useLicenseState(workspaceId, isLoggedIn, isAdmin, showToast, pla
     getNowPaymentsMerchantCurrencies()
       .then((result) => {
         if (cancelled) return;
-        const currencies = Array.isArray(result?.currencies) ? result.currencies : [];
+        const currencies = withoutTronNetwork(Array.isArray(result?.currencies) ? result.currencies : []);
+        const requestedDefault = String(result?.defaultCurrency || '').trim().toLowerCase();
+        const defaultCurrency = !TRON_PAY_CURRENCIES.has(requestedDefault) && currencies.includes(requestedDefault)
+          ? requestedDefault
+          : (currencies.find((currency) => currency === 'usdtbsc') || currencies[0] || '');
         setPaymentCurrencies(currencies);
-        setSelectedPayCurrency(result?.defaultCurrency || currencies[0] || '');
+        setSelectedPayCurrency(defaultCurrency);
+        if (!currencies.length) {
+          setPaymentErrorMessage('Nenhuma moeda BEP20 esta habilitada. A rede TRX foi removida.');
+        }
       })
       .catch((error) => {
         if (cancelled) return;

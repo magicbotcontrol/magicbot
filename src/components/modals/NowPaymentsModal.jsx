@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import QRCode from 'qrcode';
 
 const CURRENCY_LABELS = {
-  usdttrc20: 'USDT TRC20',
   usdtbsc: 'USDT BEP20',
   usdcbsc: 'USDC BEP20'
 };
@@ -56,6 +56,11 @@ function getStatusMeta(paymentOrder) {
   };
 }
 
+function formatPlanUsd(amount) {
+  const value = Number(amount || 0);
+  return `US$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 function CopyButton({ value, label }) {
   const [copied, setCopied] = useState(false);
 
@@ -93,8 +98,7 @@ export function NowPaymentsModal({
   onClose,
   isCreating,
   isRefreshing,
-  errorMessage,
-  formatMoney
+  errorMessage
 }) {
   const [qrDataUrl, setQrDataUrl] = useState('');
   const qrValue = useMemo(() => paymentOrder?.paymentUri || paymentOrder?.paymentAddress || '', [paymentOrder]);
@@ -135,11 +139,21 @@ export function NowPaymentsModal({
   const hasGeneratedPayment = Boolean(paymentOrder?.providerPaymentId);
   const isPaid = paymentOrder?.activationStatus === 'fulfilled';
   const canRefresh = hasGeneratedPayment && !isPaid;
+  const planUsdLabel = formatPlanUsd(offer.amount);
+  const cryptoAmount = Number(paymentOrder?.paymentAmount);
+  const cryptoDiffersFromPlan = Number.isFinite(cryptoAmount)
+    && cryptoAmount > 0
+    && Math.abs(cryptoAmount - Number(offer.amount || 0)) > Math.max(0.05, Number(offer.amount || 0) * 0.01);
 
-  return (
-    <div className="fixed inset-0 z-[80] overflow-y-auto overscroll-contain bg-black/70 p-3 backdrop-blur-sm animate-fade-in sm:p-4">
-      <div className="flex min-h-full items-start justify-center py-2 sm:items-center sm:py-6">
-      <div className="w-full max-w-lg rounded-[28px] bg-white p-4 shadow-2xl dark:bg-[#1E293B] sm:p-6">
+  return createPortal(
+    <div className="fixed inset-0 z-[80]">
+      <div className="absolute inset-0 bg-black/70" />
+      <div
+        className="absolute inset-0 h-[100dvh] max-h-[100dvh] overflow-y-scroll overscroll-y-contain"
+        style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
+      >
+      <div className="mx-auto w-full max-w-lg px-3 py-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-4 sm:py-6">
+      <div className="w-full rounded-[28px] bg-white p-4 shadow-2xl dark:bg-[#1E293B] sm:p-6">
         <div className="flex flex-col items-start gap-3 sm:flex-row sm:justify-between">
           <div className="min-w-0">
             <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-[#FF6B00]">NowPayments</p>
@@ -155,8 +169,8 @@ export function NowPaymentsModal({
 
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-[#334155] dark:bg-[#0B1220]">
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-gray-400">Valor em USD</p>
-            <p className="mt-2 text-2xl font-black text-gray-900 dark:text-white">{formatMoney(Number(offer.amount || 0), 'USD')}</p>
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-gray-400">Valor do plano</p>
+            <p className="mt-2 text-2xl font-black text-gray-900 dark:text-white">{planUsdLabel}</p>
             <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{offer.description || 'Pagamento da Loja de Planos.'}</p>
           </div>
 
@@ -209,6 +223,13 @@ export function NowPaymentsModal({
                   <p className="mt-1 break-all text-xl font-black text-gray-900 dark:text-white">
                     {paymentOrder.paymentAmount ? `${paymentOrder.paymentAmount} ${formatCurrencyLabel(paymentOrder.paymentCurrency)}` : '-'}
                   </p>
+                  {cryptoDiffersFromPlan ? (
+                    <p className="mt-2 text-xs font-semibold text-rose-600 dark:text-rose-300">
+                      Este valor esta diferente do plano de {planUsdLabel}. Feche e gere uma nova cobranca.
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Envie exatamente o valor do plano, {planUsdLabel}.</p>
+                  )}
                 </div>
 
                 <div className="min-w-0">
@@ -262,6 +283,8 @@ export function NowPaymentsModal({
         ) : null}
       </div>
       </div>
-    </div>
+      </div>
+    </div>,
+    document.body
   );
 }

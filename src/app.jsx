@@ -488,7 +488,6 @@ export default function App() {
         isCreating={license.isNowPaymentsPreparing}
         isRefreshing={license.isNowPaymentsRefreshing}
         errorMessage={license.nowPaymentsErrorMessage}
-        formatMoney={ui.formatMoney}
       />
 
       <style dangerouslySetInnerHTML={{ __html: globalStyles }} />
