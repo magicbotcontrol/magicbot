@@ -61,6 +61,16 @@ function formatPlanUsd(amount) {
   return `US$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function formatCryptoAmount(amount) {
+  const value = Number(amount);
+  if (!Number.isFinite(value) || value <= 0) return '';
+  const cents = Math.round(value * 100) / 100;
+  if (Math.abs(value - cents) < 0.0000001) {
+    return cents.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  return value.toLocaleString('pt-BR', { maximumFractionDigits: 8 });
+}
+
 function CopyButton({ value, label }) {
   const [copied, setCopied] = useState(false);
 
@@ -140,10 +150,7 @@ export function NowPaymentsModal({
   const isPaid = paymentOrder?.activationStatus === 'fulfilled';
   const canRefresh = hasGeneratedPayment && !isPaid;
   const planUsdLabel = formatPlanUsd(offer.amount);
-  const cryptoAmount = Number(paymentOrder?.paymentAmount);
-  const cryptoDiffersFromPlan = Number.isFinite(cryptoAmount)
-    && cryptoAmount > 0
-    && Math.abs(cryptoAmount - Number(offer.amount || 0)) > Math.max(0.05, Number(offer.amount || 0) * 0.01);
+  const cryptoAmountLabel = formatCryptoAmount(paymentOrder?.paymentAmount);
 
   return createPortal(
     <div className="fixed inset-0 z-[80]">
@@ -221,15 +228,9 @@ export function NowPaymentsModal({
                 <div>
                   <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-gray-400">Valor cripto</p>
                   <p className="mt-1 break-all text-xl font-black text-gray-900 dark:text-white">
-                    {paymentOrder.paymentAmount ? `${paymentOrder.paymentAmount} ${formatCurrencyLabel(paymentOrder.paymentCurrency)}` : '-'}
+                    {cryptoAmountLabel ? `${cryptoAmountLabel} ${formatCurrencyLabel(paymentOrder.paymentCurrency)}` : '-'}
                   </p>
-                  {cryptoDiffersFromPlan ? (
-                    <p className="mt-2 text-xs font-semibold text-rose-600 dark:text-rose-300">
-                      Este valor esta diferente do plano de {planUsdLabel}. Feche e gere uma nova cobranca.
-                    </p>
-                  ) : (
-                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Envie exatamente o valor do plano, {planUsdLabel}.</p>
-                  )}
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Envie exatamente este valor.</p>
                 </div>
 
                 <div className="min-w-0">
